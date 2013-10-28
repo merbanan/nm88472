@@ -605,6 +605,12 @@ static struct rtl2832_config rtl28xxu_rtl2832_r820t_config = {
 	.tuner = TUNER_RTL2832_R820T,
 };
 
+static struct rtl2832_config rtl28xxu_rtl2832_r828d_config = {
+	.i2c_addr = 0x10,
+	.xtal = 28800000,
+	.tuner = TUNER_RTL2832_R828D,
+};
+
 static int rtl2832u_fc0012_tuner_callback(struct dvb_usb_device *d,
 		int cmd, int arg)
 {
@@ -747,6 +753,9 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 	case TUNER_RTL2832_R820T:
 		rtl2832_config = &rtl28xxu_rtl2832_r820t_config;
 		break;
+	case TUNER_RTL2832_R828D:
+		rtl2832_config = &rtl28xxu_rtl2832_r828d_config;
+		break;
 	default:
 		dev_err(&d->udev->dev, "%s: unknown tuner=%s\n",
 				KBUILD_MODNAME, priv->tuner_name);
@@ -865,6 +874,14 @@ static const struct r820t_config rtl2832u_r820t_config = {
 	.max_i2c_msg_len = 2,
 	.rafael_chip = CHIP_R820T,
 };
+
+static const struct r820t_config rtl2832u_r828d_config = {
+	.i2c_addr = 0x1a,
+	.xtal = 16000000,
+	.max_i2c_msg_len = 2,
+	.rafael_chip = CHIP_R828D,
+};
+
 
 static int rtl2832u_tuner_attach(struct dvb_usb_adapter *adap)
 {
@@ -1388,6 +1405,8 @@ static const struct usb_device_id rtl28xxu_id_table[] = {
 		&rtl2832u_props, "Leadtek WinFast DTV Dongle mini", NULL) },
 	{ DVB_USB_DEVICE(USB_VID_GTEK, USB_PID_CPYTO_REDI_PC50A,
 		&rtl2832u_props, "Crypto ReDi PC 50 A", NULL) },
+	{ DVB_USB_DEVICE(USB_VID_HANFTEK, 0x0131,
+		&rtl2832u_props, "Astrometa DVB-T2", NULL) },
 	{ }
 };
 MODULE_DEVICE_TABLE(usb, rtl28xxu_id_table);
