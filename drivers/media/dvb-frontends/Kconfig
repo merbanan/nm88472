@@ -439,6 +439,14 @@ config DVB_RTL2832
 	help
 	  Say Y when you want to support this frontend.
 
+config DVB_NM88472
+	tristate "Panasonic NM88472"
+	depends on DVB_CORE && I2C
+	default m if !MEDIA_SUBDRV_AUTOSELECT
+	help
+	  Say Y when you want to support this frontend.
+
+
 comment "DVB-C (cable) frontends"
 	depends on DVB_CORE
 
