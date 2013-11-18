@@ -44,12 +44,12 @@ struct nm88472_config {
 #if IS_ENABLED(CONFIG_DVB_NM88472)
 extern struct dvb_frontend *nm88472_attach(
 	const struct nm88472_config *config,
-	struct i2c_adapter *i2c,
+	struct i2c_adapter *i2c
 );
 #else
 static inline struct dvb_frontend *nm88472_attach(
 	const struct nm88472_config *config,
-	struct i2c_adapter *i2c,
+	struct i2c_adapter *i2c
 )
 {
 	printk(KERN_WARNING "%s: driver disabled by Kconfig\n", __func__);

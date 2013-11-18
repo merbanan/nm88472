@@ -22,6 +22,7 @@
 
 #include "nm88472_priv.h"
 
+static const struct dvb_frontend_ops nm88472_ops;
 
 /* write single register */
 int nm88472_wr_reg(struct nm88472_priv *priv, u8 bank_adr, u8 reg, u8 val)
@@ -58,14 +59,14 @@ int nm88472_rd_reg(struct nm88472_priv *priv, u8 bank_adr, u8 reg, u8 *val)
 	u8 buf;
 	struct i2c_msg msg[2] = {
 		{
-			.addr = i2c,
+			.addr = bank_adr,
 			.flags = 0,
 			.len = 1,
 			.buf = &reg,
 		}, {
-			.addr = i2c,
+			.addr = bank_adr,
 			.flags = I2C_M_RD,
-			.len = len,
+			.len = 1,
 			.buf = &buf,
 		}
 	};
@@ -82,9 +83,9 @@ int nm88472_rd_reg(struct nm88472_priv *priv, u8 bank_adr, u8 reg, u8 *val)
 
 	return ret;}
 
-int nm88472_wr_table(struct nm88472_priv *priv, struct nm88472_i2c_reg_byte* table, int tab_length)
+int nm88472_wr_table(struct nm88472_priv *priv, const struct nm88472_i2c_reg_byte* table, int tab_length)
 {
-	int i, ret;
+	int i, ret = 0;
 	for (i=0 ; i<tab_length ; i++)
 		ret |= nm88472_wr_reg(priv, table[i].i2c_bank, table[i].addr, table[i].val);
 	return ret;
@@ -94,11 +95,8 @@ int nm88472_set_frontend_c(struct dvb_frontend *fe)
 {
 	struct nm88472_priv *priv = fe->demodulator_priv;
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
-	int ret = 0, i;
-	u8 buf[2];
-	u32 if_freq;
-	u16 if_ctl;
-	u64 num;
+	int ret = 0;
+
 
 	dev_dbg(&priv->i2c->dev, "%s: frequency=%d symbol_rate=%d\n", __func__,
 			c->frequency, c->symbol_rate);
@@ -115,9 +113,10 @@ int nm88472_set_frontend_c(struct dvb_frontend *fe)
 	ret |= nm88472_wr_reg(priv, T2, 0x04, SYS_BW_8MHZ);
 	ret |= nm88472_wr_table(priv, dvbc_8MHz_tab, ARRAY_SIZE(dvbc_8MHz_tab));
 	if (ret)
-		goto err_release;
+		goto error;
 
 	return ret;
+
 error:
 	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);
 	return ret;
@@ -128,9 +127,7 @@ int nm88472_set_frontend_t(struct dvb_frontend *fe)
 {
 	struct nm88472_priv *priv = fe->demodulator_priv;
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
-	int ret = 0, i;
-	u8 buf[2];
-	u64 num;
+	int ret = 0;
 
 	dev_dbg(&priv->i2c->dev, "%s: frequency=%d symbol_rate=%d\n", __func__,
 			c->frequency, c->symbol_rate);
@@ -164,7 +161,7 @@ int nm88472_set_frontend_t(struct dvb_frontend *fe)
 	ret |= nm88472_wr_table(priv, dvbt_tab_post, ARRAY_SIZE(dvbt_tab_post));
 	
 	if (ret)
-		goto err_release;
+		goto error;
 
 	return ret;
 error:
@@ -176,9 +173,7 @@ int nm88472_set_frontend_t2(struct dvb_frontend *fe)
 {
 	struct nm88472_priv *priv = fe->demodulator_priv;
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
-	int ret = 0, i;
-	u8 buf[2];
-	u64 num;
+	int ret = 0;
 
 	dev_dbg(&priv->i2c->dev, "%s: frequency=%d symbol_rate=%d\n", __func__,
 			c->frequency, c->symbol_rate);
@@ -196,7 +191,7 @@ int nm88472_set_frontend_t2(struct dvb_frontend *fe)
 	switch (c->bandwidth_hz) {
 	case 5000000:
 		ret |= nm88472_wr_reg(priv, T2, 0x04, SYS_BW_5MHZ);
-		ret |= nm88472_wr_table(priv, dvbt2_5MHz_tab, ARRAY_SIZE(dvbt_5MHz_tab));
+		ret |= nm88472_wr_table(priv, dvbt2_5MHz_tab, ARRAY_SIZE(dvbt2_5MHz_tab));
 		break;
 	case 6000000:
 		ret |= nm88472_wr_reg(priv, T2, 0x04, SYS_BW_6MHZ);
@@ -216,7 +211,7 @@ int nm88472_set_frontend_t2(struct dvb_frontend *fe)
 	ret |= nm88472_wr_table(priv, dvbt2_tab_post, ARRAY_SIZE(dvbt2_tab_post));
 	
 	if (ret)
-		goto err_release;
+		goto error;
 
 	return ret;
 error:
@@ -251,30 +246,29 @@ static int nm88472_read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
 }
 */
 
+
 static int nm88472_initialize_demod(struct nm88472_priv *priv)
 {
-	int i, len, remaining, ret;
+	int i, ret;
 	const struct firmware *fw;
-	u16 checksum = 0;
 	u8 val;
-	u8 fw_params[4];
 	u8 *fw_file = NM88472_FIRMWARE;
 
-	dev_info(&state->i2c->dev, "%s: found a '%s', will try " \
+	dev_info(&priv->i2c->dev, "%s: found a '%s', will try " \
 			"to load a firmware\n",
 			KBUILD_MODNAME, nm88472_ops.info.name);
 
 	/* request the firmware, this will block and timeout */
-	ret = request_firmware(&fw, fw_file, state->i2c->dev.parent);
+	ret = request_firmware(&fw, fw_file, priv->i2c->dev.parent);
 	if (ret) {
-		dev_info(&state->i2c->dev, "%s: did not find the firmware " \
+		dev_info(&priv->i2c->dev, "%s: did not find the firmware " \
 			"file. (%s) Please see linux/Documentation/dvb/ for " \
 			"more details on firmware-problems. (%d)\n",
 			KBUILD_MODNAME, fw_file, ret);
 		goto err;
 	}
 
-	dev_info(&state->i2c->dev, "%s: downloading firmware from file '%s'\n",
+	dev_info(&priv->i2c->dev, "%s: downloading firmware from file '%s'\n",
 			KBUILD_MODNAME, fw_file);
 
 	/* Initialize all bank registers */
@@ -301,8 +295,8 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 		goto err_release;
 	
 	if (val & 0x10) {
-		dev_info(&state->i2c->dev, "%s: firmware '%s' parity check failed\n",
-				KBUILD_MODNAME, firmware);
+		dev_info(&priv->i2c->dev, "%s: firmware '%s' parity check failed\n",
+				KBUILD_MODNAME, fw_file);
 	}
 
 	/* Start firmware */
@@ -314,10 +308,11 @@ err_release:
 	release_firmware(fw);
 err:
 	if (!ret)
-		dev_info(&state->i2c->dev, "%s: '%s' demod initialized\n",
+		dev_info(&priv->i2c->dev, "%s: '%s' demod initialized\n",
 				KBUILD_MODNAME, nm88472_ops.info.name);
 	return ret;
 }
+
 
 static int nm88472_set_serial_ts_mode(struct nm88472_priv *priv)
 {
@@ -335,6 +330,7 @@ static int nm88472_init(struct dvb_frontend *fe)
 	ret |= nm88472_set_serial_ts_mode(fe->demodulator_priv);
 	return ret;
 }
+
 
 static const struct dvb_frontend_ops nm88472_ops = {
 	.delsys = { SYS_DVBT, SYS_DVBT2, SYS_DVBC_ANNEX_A },
@@ -381,13 +377,10 @@ static const struct dvb_frontend_ops nm88472_ops = {
 
 
 struct dvb_frontend *nm88472_attach(const struct nm88472_config *cfg,
-		struct i2c_adapter *i2c, int *gpio_chip_base
-)
+		struct i2c_adapter *i2c )
 {
 	struct nm88472_priv *priv;
 	int ret;
-	u8 tmp;
-	int i;
 
 	priv = kzalloc(sizeof(struct nm88472_priv), GFP_KERNEL);
 	if (!priv) {
@@ -408,6 +401,8 @@ error:
 	kfree(priv);
 	return NULL;
 }
+
+
 EXPORT_SYMBOL(nm88472_attach);
 
 MODULE_AUTHOR("Benjamin Larsson <benjamin@southpole.se>");
