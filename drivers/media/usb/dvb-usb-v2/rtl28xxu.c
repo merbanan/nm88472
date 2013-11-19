@@ -19,7 +19,7 @@
  *    with this program; if not, write to the Free Software Foundation, Inc.,
  *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
+#define DEBUG
 #include "rtl28xxu.h"
 
 #include "rtl2830.h"
@@ -35,6 +35,8 @@
 #include "fc2580.h"
 #include "tua9001.h"
 #include "r820t.h"
+
+#define dev_dbg dev_err
 
 DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr);
 
@@ -387,8 +389,6 @@ static int rtl2832u_read_config(struct dvb_usb_device *d)
 	struct rtl28xxu_req req_tda18272 = {0x00c0, CMD_I2C_RD, 2, buf};
 	struct rtl28xxu_req req_r820t = {0x0034, CMD_I2C_RD, 1, buf};
 	struct rtl28xxu_req req_r828d = {0x0074, CMD_I2C_RD, 1, buf};
-	/* demod probe */
-	struct rtl28xxu_req req_nm88472 = {0xFF38, CMD_I2C_RD, 1, buf};
 	
 	dev_dbg(&d->udev->dev, "%s:\n", __func__);
 
@@ -406,18 +406,9 @@ static int rtl2832u_read_config(struct dvb_usb_device *d)
 	if (ret)
 		goto err;
 
-	/*
-	 * Probe for nm88472 demod
-	 */
-	/* check NM88472 ID register; reg=FF val=02 */
-	ret = rtl28xxu_ctrl_msg(d, &req_nm88472);
-	if (ret == 0 && buf[0] == 0x02) {
-		priv->demod = DEMOD_NM88472;
-		priv->demod_name = "NM88472";
-	} else {
-		priv->demod = DEMOD_RTL2832;
-		priv->demod_name = "RTL2832";
-	}
+	priv->demod = DEMOD_RTL2832;
+	priv->demod_name = "RTL2832";
+	dev_err(&d->udev->dev, "%s:buf = %d, demod = %s, ret = %d\n", __func__, buf[0], priv->demod_name, ret);
 
 	/*
 	 * Probe used tuner. We need to know used tuner before demod attach
@@ -536,6 +527,86 @@ err:
 	dev_dbg(&d->udev->dev, "%s: failed=%d\n", __func__, ret);
 	return ret;
 }
+
+static int rtl2832p_read_config(struct dvb_usb_device *d)
+{
+	struct rtl28xxu_priv *priv = d_to_priv(d);
+	int ret;
+	u8 buf[2];
+	/* open RTL2832U/RTL2832 I2C gate */
+	struct rtl28xxu_req req_gate_open = {0x0120, 0x0011, 0x0001, "\x18"};
+	/* close RTL2832U/RTL2832 I2C gate */
+	struct rtl28xxu_req req_gate_close = {0x0120, 0x0011, 0x0001, "\x10"};
+	/* tuner probes */
+	struct rtl28xxu_req req_r828d = {0x0074, CMD_I2C_RD, 1, buf};
+	/* demod probe */
+	struct rtl28xxu_req req_nm88472 = {0xFF38, CMD_I2C_RD, 1, buf};
+	
+	dev_err(&d->udev->dev, "%s:buf = %d, demod = %s, ret = %d\n", __func__, buf[0], priv->demod_name, ret);
+
+	/* enable the nm88472 demod gpio pins */
+	ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x09, 0x01);
+	if (ret)
+		goto err;
+
+ 	ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x02, 0x01);
+	if (ret)
+		goto err;
+
+	ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0xdd, 0x01);
+	if (ret)
+		goto err;
+	
+	
+	/* open demod I2C gate */
+	ret = rtl28xxu_ctrl_msg(d, &req_gate_open);
+	if (ret)
+		goto err;
+
+	/*
+	 * Probe for nm88472 demod
+	 */
+	/* check NM88472 ID register; reg=FF val=02 */
+	ret = rtl28xxu_ctrl_msg(d, &req_nm88472);
+	if (ret == 0 && buf[0] == 0x02) {
+		priv->demod = DEMOD_NM88472;
+		priv->demod_name = "NM88472";
+	} else {
+		priv->demod = DEMOD_RTL2832;
+		priv->demod_name = "RTL2832";
+	}
+	dev_err(&d->udev->dev, "%s:buf = %d, demod = %s, ret = %d\n", __func__, buf[0], priv->demod_name, ret);
+
+	/*
+	 * Probe used tuner. We need to know used tuner before demod attach
+	 * since there is some demod params needed to set according to tuner.
+	 */
+
+	priv->tuner_name = "NONE";
+
+	/* check R828D ID register; reg=00 val=69 */
+	ret = rtl28xxu_ctrl_msg(d, &req_r828d);
+	if (ret == 0 && buf[0] == 0x69) {
+		priv->tuner = TUNER_RTL2832_R828D;
+		priv->tuner_name = "R828D";
+		goto found;
+	}
+
+
+found:
+	dev_dbg(&d->udev->dev, "%s: tuner=%s\n", __func__, priv->tuner_name);
+
+	/* close demod I2C gate */
+	ret = rtl28xxu_ctrl_msg(d, &req_gate_close);
+	if (ret < 0)
+		goto err;
+
+	return 0;
+err:
+	dev_dbg(&d->udev->dev, "%s: failed=%d\n", __func__, ret);
+	return ret;
+}
+
 
 static struct rtl2830_config rtl28xxu_rtl2830_mt2060_config = {
 	.i2c_addr = 0x10, /* 0x20 */
@@ -1438,6 +1509,28 @@ static const struct dvb_usb_device_properties rtl2832u_props = {
 	},
 };
 
+static const struct dvb_usb_device_properties rtl2832p_props = {
+	.driver_name = KBUILD_MODNAME,
+	.owner = THIS_MODULE,
+	.adapter_nr = adapter_nr,
+	.size_of_priv = sizeof(struct rtl28xxu_priv),
+
+	.power_ctrl = rtl2832u_power_ctrl,
+	.i2c_algo = &rtl28xxu_i2c_algo,
+	.read_config = rtl2832p_read_config,
+	.frontend_attach = rtl2832u_frontend_attach,
+	.tuner_attach = rtl2832u_tuner_attach,
+	.init = rtl28xxu_init,
+	.get_rc_config = rtl2832u_get_rc_config,
+
+	.num_adapters = 1,
+	.adapter = {
+		{
+			.stream = DVB_USB_STREAM_BULK(0x81, 6, 8 * 512),
+		},
+	},
+};
+
 static const struct usb_device_id rtl28xxu_id_table[] = {
 	{ DVB_USB_DEVICE(USB_VID_REALTEK, USB_PID_REALTEK_RTL2831U,
 		&rtl2831u_props, "Realtek RTL2831U reference design", NULL) },
@@ -1486,7 +1579,7 @@ static const struct usb_device_id rtl28xxu_id_table[] = {
 		&rtl2832u_props, "Crypto ReDi PC 50 A", NULL) },
 
 	{ DVB_USB_DEVICE(USB_VID_HANFTEK, 0x0131,
-		&rtl2832u_props, "Astrometa DVB-T2", NULL) },
+		&rtl2832p_props, "Astrometa DVB-T2", NULL) },
 	{ }
 };
 MODULE_DEVICE_TABLE(usb, rtl28xxu_id_table);

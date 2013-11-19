@@ -20,7 +20,10 @@
 
 /* Very much based on cxd2820r demod code Copyright (C) 2010 Antti Palosaari <crope@iki.fi> */
 
+#define DEBUG
 #include "nm88472_priv.h"
+#define dev_dbg dev_err
+
 
 static const struct dvb_frontend_ops nm88472_ops;
 
