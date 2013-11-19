@@ -38,6 +38,10 @@
 
 DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr);
 
+static int force_rtl_demod = 0;
+module_param(force_rtl_demod, int, 0644);
+MODULE_PARM_DESC(force_rtl_demod, "Use rtl2832 demod instead of nm88472 (default: 0)");
+
 static int rtl28xxu_ctrl_msg(struct dvb_usb_device *d, struct rtl28xxu_req *req)
 {
 	int ret;
@@ -793,9 +797,31 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 		goto err;
 	}
 
+	if (force_rtl_demod) {
+		priv->demod = DEMOD_RTL2832;
+		priv->demod_name = "RTL2832"
+		dev_dbg(&d->udev->dev, "%s: forcing demod to %s\n",
+			__func__, priv->demod_name);
+	}
+
 	/* attach demodulator */
 	switch (priv->demod) {
 	case DEMOD_RTL2832:
+		if (priv->tuner == TUNER_RTL2832_R828D) { 
+			/* Assume Astrometa usb stick
+			 * power off mn88472 demod on GPIO0 */
+			ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
+			if (ret)
+				goto err;
+
+			ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 0x01);
+			if (ret)
+				goto err;
+
+			ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
+			if (ret)
+				goto err;
+		}
 		adap->fe[0] = dvb_attach(rtl2832_attach, rtl2832_config, &d->i2c_adap);
 		if (!adap->fe[0]) {
 			ret = -ENODEV;
@@ -986,19 +1012,6 @@ static int rtl2832u_tuner_attach(struct dvb_usb_adapter *adap)
 				adap->fe[0]->ops.tuner_ops.get_rf_strength;
 		break;
 	case TUNER_RTL2832_R828D:
-		/* power off mn88472 demod on GPIO0 */
-/*		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
-		if (ret)
-			goto err;
-
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 0x01);
-		if (ret)
-			goto err;
-
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
-		if (ret)
-			goto err;
-*/
 		fe = dvb_attach(r820t_attach, adap->fe[0], &d->i2c_adap,
 				&rtl2832u_r828d_config);
 
