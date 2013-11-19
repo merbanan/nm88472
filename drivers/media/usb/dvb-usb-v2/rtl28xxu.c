@@ -24,6 +24,7 @@
 
 #include "rtl2830.h"
 #include "rtl2832.h"
+#include "nm88472.h"
 
 #include "qt1010.h"
 #include "mt2060.h"
@@ -288,6 +289,10 @@ static int rtl2831u_read_config(struct dvb_usb_device *d)
 
 	dev_dbg(&d->udev->dev, "%s:\n", __func__);
 
+	/* Set demod configuration */
+	priv->demod = DEMOD_RTL2830;
+	priv->demod_name  = "RTL2830";
+	
 	/*
 	 * RTL2831U GPIOs
 	 * =========================================================
@@ -378,7 +383,9 @@ static int rtl2832u_read_config(struct dvb_usb_device *d)
 	struct rtl28xxu_req req_tda18272 = {0x00c0, CMD_I2C_RD, 2, buf};
 	struct rtl28xxu_req req_r820t = {0x0034, CMD_I2C_RD, 1, buf};
 	struct rtl28xxu_req req_r828d = {0x0074, CMD_I2C_RD, 1, buf};
-
+	/* demod probe */
+	struct rtl28xxu_req req_nm88472 = {0xFF38, CMD_I2C_RD, 1, buf};
+	
 	dev_dbg(&d->udev->dev, "%s:\n", __func__);
 
 	/* enable GPIO3 and GPIO6 as output */
@@ -390,15 +397,28 @@ static int rtl2832u_read_config(struct dvb_usb_device *d)
 	if (ret)
 		goto err;
 
-	/*
-	 * Probe used tuner. We need to know used tuner before demod attach
-	 * since there is some demod params needed to set according to tuner.
-	 */
-
 	/* open demod I2C gate */
 	ret = rtl28xxu_ctrl_msg(d, &req_gate_open);
 	if (ret)
 		goto err;
+
+	/*
+	 * Probe for nm88472 demod
+	 */
+	/* check NM88472 ID register; reg=FF val=02 */
+	ret = rtl28xxu_ctrl_msg(d, &req_nm88472);
+	if (ret == 0 && buf[0] == 0x02) {
+		priv->demod = DEMOD_NM88472;
+		priv->demod_name = "NM88472";
+	} else {
+		priv->demod = DEMOD_RTL2832;
+		priv->demod_name = "RTL2832";
+	}
+
+	/*
+	 * Probe used tuner. We need to know used tuner before demod attach
+	 * since there is some demod params needed to set according to tuner.
+	 */
 
 	priv->tuner_name = "NONE";
 
@@ -615,6 +635,10 @@ static struct rtl2832_config rtl28xxu_rtl2832_r820t_config = {
 	.tuner = TUNER_RTL2832_R820T,
 };
 
+static struct nm88472_config rtl28xxp_nm88472_r828d_config = {
+	.ts_mode = 0,
+};
+
 static int rtl2832u_fc0012_tuner_callback(struct dvb_usb_device *d,
 		int cmd, int arg)
 {
@@ -734,6 +758,7 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 	struct dvb_usb_device *d = adap_to_d(adap);
 	struct rtl28xxu_priv *priv = d_to_priv(d);
 	struct rtl2832_config *rtl2832_config;
+	struct nm88472_config *nm88472_config;
 
 	dev_dbg(&d->udev->dev, "%s:\n", __func__);
 
@@ -755,8 +780,11 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 		rtl2832_config = &rtl28xxu_rtl2832_e4000_config;
 		break;
 	case TUNER_RTL2832_R820T:
+		rtl2832_config = &rtl28xxu_rtl2832_r820t_config;
+		break;
 	case TUNER_RTL2832_R828D:
 		rtl2832_config = &rtl28xxu_rtl2832_r820t_config;
+		nm88472_config = &rtl28xxp_nm88472_r828d_config;
 		break;
 	default:
 		dev_err(&d->udev->dev, "%s: unknown tuner=%s\n",
@@ -766,11 +794,27 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 	}
 
 	/* attach demodulator */
-	adap->fe[0] = dvb_attach(rtl2832_attach, rtl2832_config, &d->i2c_adap);
-	if (!adap->fe[0]) {
+	switch (priv->demod) {
+	case DEMOD_RTL2832:
+		adap->fe[0] = dvb_attach(rtl2832_attach, rtl2832_config, &d->i2c_adap);
+		if (!adap->fe[0]) {
+			ret = -ENODEV;
+			goto err;
+		}
+		break;
+	case DEMOD_NM88472:
+		adap->fe[0] = dvb_attach(nm88472_attach, nm88472_config, &d->i2c_adap);
+		if (!adap->fe[0]) {
+			ret = -ENODEV;
+			goto err;
+		}
+		break;
+	default:
+		dev_err(&d->udev->dev, "%s: unknown demod=%s\n",
+				KBUILD_MODNAME, priv->demod_name);
 		ret = -ENODEV;
-		goto err;
-	}
+		goto err;	
+	}	
 
 	/* set fe callback */
 	adap->fe[0]->callback = rtl2832u_frontend_callback;
@@ -943,7 +987,7 @@ static int rtl2832u_tuner_attach(struct dvb_usb_adapter *adap)
 		break;
 	case TUNER_RTL2832_R828D:
 		/* power off mn88472 demod on GPIO0 */
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
+/*		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
 		if (ret)
 			goto err;
 
@@ -954,7 +998,7 @@ static int rtl2832u_tuner_attach(struct dvb_usb_adapter *adap)
 		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
 		if (ret)
 			goto err;
-
+*/
 		fe = dvb_attach(r820t_attach, adap->fe[0], &d->i2c_adap,
 				&rtl2832u_r828d_config);
 

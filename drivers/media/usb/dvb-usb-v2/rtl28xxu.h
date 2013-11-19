@@ -56,6 +56,8 @@ struct rtl28xxu_priv {
 	char *tuner_name;
 	u8 page; /* integrated demod active register page */
 	bool rc_active;
+	u8 demod;
+	char *demod_name;
 };
 
 enum rtl28xxu_chip_id {
@@ -86,6 +88,11 @@ enum rtl28xxu_tuner {
 	TUNER_RTL2832_R828D,
 };
 
+enum rtl28xxx_demod {
+	DEMOD_RTL2830,
+	DEMOD_RTL2832,
+	DEMOD_NM88472,
+};
 struct rtl28xxu_req {
 	u16 value;
 	u16 index;
