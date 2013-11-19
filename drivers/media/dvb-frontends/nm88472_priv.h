@@ -25,7 +25,6 @@
 #include "dvb_frontend.h"
 #include "dvb_math.h"
 #include "nm88472.h"
-#include <linux/gpio.h>
 #include <linux/firmware.h>
 
 #define NM88472_FIRMWARE "dvb-demod-nm88472-01.fw"
@@ -35,16 +34,16 @@
 #define C1 (0x34>>1)
 
 enum dvb_sys_id {
-	SYS_DVB_T2 = 2,
-	SYS_DVB_T  = 3,
-	SYS_DVB_C  = 4,
+	SYS_DVB_T2 = 0x02,
+	SYS_DVB_T  = 0x03,
+	SYS_DVB_C  = 0x04,
 };
 
 enum dvb_sys_bw {
-	SYS_BW_8MHZ = 0,
-	SYS_BW_7MHZ = 1,
-	SYS_BW_6MHZ = 2,
-	SYS_BW_5MHZ = 3,
+	SYS_BW_8MHZ = 0x00,
+	SYS_BW_7MHZ = 0x01,
+	SYS_BW_6MHZ = 0x02,
+	SYS_BW_5MHZ = 0x03,
 };
 
 struct nm88472_priv {

@@ -24,6 +24,11 @@
 #include <linux/kconfig.h>
 #include <linux/dvb/frontend.h>
 
+enum ts_mode {
+	PARALLEL_FIXED_CLOCK,
+	PARALLEL_VARIABLE_CLOCK,
+	SERIAL_VARIABLE_CLOCK,
+};
 
 struct nm88472_config {
 	/* Demodulator I2C address.

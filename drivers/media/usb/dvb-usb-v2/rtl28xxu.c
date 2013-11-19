@@ -640,7 +640,7 @@ static struct rtl2832_config rtl28xxu_rtl2832_r820t_config = {
 };
 
 static struct nm88472_config rtl28xxp_nm88472_r828d_config = {
-	.ts_mode = 0,
+	.ts_mode = SERIAL_VARIABLE_CLOCK,
 };
 
 static int rtl2832u_fc0012_tuner_callback(struct dvb_usb_device *d,

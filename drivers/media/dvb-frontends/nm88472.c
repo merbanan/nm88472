@@ -317,9 +317,23 @@ err:
 static int nm88472_set_serial_ts_mode(struct nm88472_priv *priv)
 {
 	int ret;
-	/* Serial TS with variable clock */
-	ret  = nm88472_wr_reg(priv, T2, 0x08, 0x1d);
-	ret |= nm88472_wr_reg(priv, T1, 0xd9, 0xe3);
+	switch (priv->cfg.ts_mode) {
+	case PARALLEL_FIXED_CLOCK:
+		ret  = nm88472_wr_reg(priv, T2, 0x08, 0x00);
+		ret |= nm88472_wr_reg(priv, T1, 0xd9, 0xe1);
+		break;
+	case PARALLEL_VARIABLE_CLOCK:
+		ret  = nm88472_wr_reg(priv, T2, 0x08, 0x00);
+		ret |= nm88472_wr_reg(priv, T1, 0xd9, 0xe3);
+		break;
+	case SERIAL_VARIABLE_CLOCK:
+		ret  = nm88472_wr_reg(priv, T2, 0x08, 0x1d);
+		ret |= nm88472_wr_reg(priv, T1, 0xd9, 0xe3);
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	return ret;
 }
 
