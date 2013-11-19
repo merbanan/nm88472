@@ -799,7 +799,7 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 
 	if (force_rtl_demod) {
 		priv->demod = DEMOD_RTL2832;
-		priv->demod_name = "RTL2832"
+		priv->demod_name = "RTL2832";
 		dev_dbg(&d->udev->dev, "%s: forcing demod to %s\n",
 			__func__, priv->demod_name);
 	}
