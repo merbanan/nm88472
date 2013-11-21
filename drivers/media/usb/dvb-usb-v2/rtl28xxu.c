@@ -533,10 +533,23 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 	struct rtl28xxu_req req_r828d = {0x0074, CMD_I2C_RD, 1, buf};
 	/* demod probe */
 	struct rtl28xxu_req req_nm88472 = {0xFF38, CMD_I2C_RD, 1, buf};
-	
+
 	/* Reset nm88472 demod */
 	/* Set GPIO0 high (nm88472 inactive) */
-	ret = rtl28xx_wr_regs(d, SYS_GPIO_OUT_VAL, "\x08", 1);
+	
+	ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x01, 0x01);
+	if (ret)
+		goto err;
+
+	ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x01, 0x01);
+	if (ret)
+		goto err;
+
+	ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
+	if (ret)
+		goto err;
+
+	/*	ret = rtl28xx_wr_regs(d, SYS_GPIO_OUT_VAL, "\x08", 1);
 	if (ret)
 		goto err;
 
@@ -547,9 +560,9 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 	ret = rtl28xx_wr_regs(d, SYS_GPIO_OUT_EN, "\xdd", 1);
 	if (ret)
 		goto err;
-
+*/
 	/* Set GPIO0 low (nm88472 active) */
-	ret = rtl28xx_wr_regs(d, SYS_GPIO_OUT_VAL, "\x8d", 1);
+/*	ret = rtl28xx_wr_regs(d, SYS_GPIO_OUT_VAL, "\x8d", 1);
 	if (ret)
 		goto err;
 
@@ -560,7 +573,7 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 	ret = rtl28xx_wr_regs(d, SYS_GPIO_OUT_EN, "\xdd", 1);
 	if (ret)
 		goto err;
-
+*/
 	/* open demod I2C gate */
 	ret = rtl28xxu_ctrl_msg(d, &req_gate_open);
 	if (ret)
@@ -590,15 +603,15 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 
 	if (priv->demod == DEMOD_RTL2832 && nm88472_detected) {
 		/* power off mn88472 demod on GPIO0 */
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 1);
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
 		if (ret)
 			goto err;
 
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 1);
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 0x01);
 		if (ret)
 			goto err;
 
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 1);
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
 		if (ret)
 			goto err;
 	}
@@ -645,6 +658,17 @@ ret = rtl28xx_wr_regs(d, 0x3001, "\x08", 1); //010732
 ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //010735
 ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //010739
 #endif
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
+		if (ret)
+			goto err;
+
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 0x01);
+		if (ret)
+			goto err;
+
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
+		if (ret)
+			goto err;
 	}
 
 	dev_err(&d->udev->dev, "%s:buf = %d, demod = %s, ret = %d\n", __func__, buf[0], priv->demod_name, ret);
@@ -952,11 +976,23 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 		break;
 	case DEMOD_NM88472:
 		adap->fe[0] = dvb_attach(rtl2832_attach, rtl2832_config, &d->i2c_adap);
-//		adap->fe[0] = dvb_attach(nm88472_attach, nm88472_config, &d->i2c_adap);
 		if (!adap->fe[0]) {
+			dev_err(&d->udev->dev, "%s:  rtl2832 demod failed to attach!\n",
+				KBUILD_MODNAME);
 			ret = -ENODEV;
 			goto err;
 		}
+
+		adap->fe[1] = dvb_attach(nm88472_attach, nm88472_config, &d->i2c_adap);
+		if (!adap->fe[1]) {
+			dev_err(&d->udev->dev, "%s: nm88472 demod failed to attach!\n",
+				KBUILD_MODNAME);
+			ret = -ENODEV;
+			goto err;
+		}
+		/* rt828d tuner and nm88472 demod is behind rtl2832 demod I2C-gate */
+		adap->fe[1]->ops.i2c_gate_ctrl = adap->fe[0]->ops.i2c_gate_ctrl;
+
 		break;
 	default:
 		dev_err(&d->udev->dev, "%s: unknown demod=%s\n",
