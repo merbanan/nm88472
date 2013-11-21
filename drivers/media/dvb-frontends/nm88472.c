@@ -348,6 +348,16 @@ static int nm88472_init(struct dvb_frontend *fe)
 	return ret;
 }
 
+static void nm88472_release(struct dvb_frontend *fe)
+{
+	struct nm88472_priv *priv = fe->demodulator_priv;
+	int uninitialized_var(ret); /* silence compiler warning */
+
+	dev_dbg(&priv->i2c->dev, "%s\n", __func__);
+
+	kfree(priv);
+	return;
+}
 
 static const struct dvb_frontend_ops nm88472_ops = {
 	.delsys = { SYS_DVBT, SYS_DVBT2, SYS_DVBC_ANNEX_A },
@@ -376,7 +386,7 @@ static const struct dvb_frontend_ops nm88472_ops = {
 			FE_CAN_MULTISTREAM
 		},
 
-//	.release		= nm88472_release,
+ 	.release		= nm88472_release,
 	.init			= nm88472_init,
 //	.sleep			= nm88472_sleep,
 
