@@ -563,9 +563,9 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 		priv->demod_name = "RTL2832";
 	}
 
-	/* HACK */
-	priv->demod = DEMOD_RTL2832;
-	priv->demod_name = "RTL2832";
+	/* HACK force demod to RTL2832 */
+//	priv->demod = DEMOD_RTL2832;
+//	priv->demod_name = "RTL2832";
 
 	if (force_rtl_demod) {
 		priv->demod = DEMOD_RTL2832;
@@ -576,17 +576,60 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 
 	if (priv->demod == DEMOD_RTL2832 && nm88472_detected) {
 		/* power off mn88472 demod on GPIO0 */
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 1);
 		if (ret)
 			goto err;
 
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 0x01);
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_DIR, 0x00, 1);
 		if (ret)
 			goto err;
 
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
+		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 1);
 		if (ret)
 			goto err;
+	}
+
+	if (priv->demod == DEMOD_NM88472) {
+ret = rtl28xx_wr_regs(d, 0x2000, "\x09", 1); //000059
+ret = rtl28xx_wr_regs(d, 0x2158, "\x00\x02", 2); //000063
+ret = rtl28xx_wr_regs(d, 0x215a, "\x00\x00", 2); //000065
+ret = rtl28xx_wr_regs(d, 0x2160, "\x14", 1); //000069
+ret = rtl28xx_wr_regs(d, 0x2148, "\x10\x02", 2); //000073
+ret = rtl28xx_wr_regs(d, 0x2148, "\x00\x00", 2); //000075
+ret = rtl28xx_wr_regs(d, 0x3007, "\x96", 1); //000079
+ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //000083
+ret = rtl28xx_wr_regs(d, 0x3004, "\x06", 1); //000086
+ret = rtl28xx_wr_regs(d, 0x3003, "\x19", 1); //000090
+ret = rtl28xx_wr_regs(d, 0x2010, "\x29", 1); //000094
+ret = rtl28xx_wr_regs(d, 0x300b, "\x22", 1); //000098
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000102
+ret = rtl28xx_wr_regs(d, 0x3000, "\x80", 1); //000106
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000110
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000174
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000178
+
+ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007145
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //007149
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //007153
+ret = rtl28xx_wr_regs(d, 0x3000, "\x20", 1); //007157
+ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //007266
+ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //007270
+ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007274
+ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //007377
+ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //007384
+ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007392
+ret = rtl28xx_wr_regs(d, 0x2148, "\x10\x02", 2); //010623
+ret = rtl28xx_wr_regs(d, 0x2148, "\x00\x00", 2); //010624
+ret = rtl28xx_wr_regs(d, 0x300b, "\x02", 1); //010655
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010658
+ret = rtl28xx_wr_regs(d, 0x3000, "\x80", 1); //010662
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010665
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010725
+ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010728
+ret = rtl28xx_wr_regs(d, 0x3001, "\x08", 1); //010732
+ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //010735
+ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //010739
+
 	}
 
 	dev_err(&d->udev->dev, "%s:buf = %d, demod = %s, ret = %d\n", __func__, buf[0], priv->demod_name, ret);
@@ -598,6 +641,8 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 
 	priv->tuner_name = "NONE";
 
+	mdelay(200);
+	
 	/* check R828D ID register; reg=00 val=69 */
 	ret = rtl28xxu_ctrl_msg(d, &req_r828d);
 	if (ret == 0 && buf[0] == 0x69) {
