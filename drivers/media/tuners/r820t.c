@@ -2326,7 +2326,7 @@ struct dvb_frontend *r820t_attach(struct dvb_frontend *fe,
 	if (rc < 0)
 		goto err;
 
-	tuner_info("Rafael Micro r820t successfully identified\n");
+	tuner_info("Rafael Micro: %s successfully identified\n", tuner_chip_name[cfg->rafael_chip]);
 
 	if (fe->ops.i2c_gate_ctrl)
 		fe->ops.i2c_gate_ctrl(fe, 0);
