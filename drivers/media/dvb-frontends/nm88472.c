@@ -100,6 +100,8 @@ int nm88472_set_frontend_c(struct dvb_frontend *fe)
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
 	int ret = 0;
 
+	dev_info(&priv->i2c->dev, "%s: %s", KBUILD_MODNAME,  __func__);	
+
 
 	dev_dbg(&priv->i2c->dev, "%s: frequency=%d symbol_rate=%d\n", __func__,
 			c->frequency, c->symbol_rate);
@@ -131,6 +133,8 @@ int nm88472_set_frontend_t(struct dvb_frontend *fe)
 	struct nm88472_priv *priv = fe->demodulator_priv;
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
 	int ret = 0;
+
+	dev_info(&priv->i2c->dev, "%s: %s", KBUILD_MODNAME,  __func__);	
 
 	dev_dbg(&priv->i2c->dev, "%s: frequency=%d symbol_rate=%d\n", __func__,
 			c->frequency, c->symbol_rate);
@@ -177,6 +181,8 @@ int nm88472_set_frontend_t2(struct dvb_frontend *fe)
 	struct nm88472_priv *priv = fe->demodulator_priv;
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
 	int ret = 0;
+	
+	dev_info(&priv->i2c->dev, "%s: %s", KBUILD_MODNAME,  __func__);	
 
 	dev_dbg(&priv->i2c->dev, "%s: frequency=%d symbol_rate=%d\n", __func__,
 			c->frequency, c->symbol_rate);
@@ -257,6 +263,8 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 	u8 val;
 	u8 *fw_file = NM88472_FIRMWARE;
 
+	dev_info(&priv->i2c->dev, "%s: %s", KBUILD_MODNAME,  __func__);	
+
 	dev_info(&priv->i2c->dev, "%s: found a '%s', will try " \
 			"to load a firmware\n",
 			KBUILD_MODNAME, nm88472_ops.info.name);
@@ -279,7 +287,6 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 	if (ret)
 		goto err_release;
 
-
 	/* Prepare DVB-T bank for firmware upload */
 	ret |= nm88472_wr_reg(priv, T1, 0xf0, 0x20);
 	ret |= nm88472_wr_reg(priv, T1, 0xf5, 0x03);
@@ -292,20 +299,20 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 	if (ret)
 		goto err_release;
 
-	/* Check parity */
-	ret |= nm88472_rd_reg(priv, T1, 0xf5, &val);
-	if (ret)
-		goto err_release;
-	
-	if (val & 0x10) {
-		dev_info(&priv->i2c->dev, "%s: firmware '%s' parity check failed\n",
-				KBUILD_MODNAME, fw_file);
-	}
-
 	/* Start firmware */
 	ret |= nm88472_wr_reg(priv, T1, 0xf5, 0x00);
 	if (ret)
 		goto err_release;
+
+	/* Check parity */
+	ret |= nm88472_rd_reg(priv, T1, 0xf5, &val);
+	if (ret)
+		goto err_release;
+
+	if (val & 0x10) {
+		dev_info(&priv->i2c->dev, "%s: firmware '%s' parity check failed\n",
+				KBUILD_MODNAME, fw_file);
+	}
 	
 err_release:
 	release_firmware(fw);
@@ -320,6 +327,9 @@ err:
 static int nm88472_set_serial_ts_mode(struct nm88472_priv *priv)
 {
 	int ret;
+	
+	dev_info(&priv->i2c->dev, "%s: %s", KBUILD_MODNAME,  __func__);	
+
 	switch (priv->cfg.ts_mode) {
 	case PARALLEL_FIXED_CLOCK:
 		ret  = nm88472_wr_reg(priv, T2, 0x08, 0x00);
@@ -343,6 +353,9 @@ static int nm88472_set_serial_ts_mode(struct nm88472_priv *priv)
 static int nm88472_init(struct dvb_frontend *fe)
 {
 	int ret;
+	
+//	dev_info(&priv->i2c->dev, "%s: Init", KBUILD_MODNAME);	
+
 	ret  = nm88472_initialize_demod(fe->demodulator_priv);
 	ret |= nm88472_set_serial_ts_mode(fe->demodulator_priv);
 	return ret;
@@ -353,7 +366,7 @@ static void nm88472_release(struct dvb_frontend *fe)
 	struct nm88472_priv *priv = fe->demodulator_priv;
 	int uninitialized_var(ret); /* silence compiler warning */
 
-	dev_dbg(&priv->i2c->dev, "%s\n", __func__);
+//	dev_dbg(&priv->i2c->dev, "%s\n", __func__);
 
 	kfree(priv);
 	return;
@@ -421,6 +434,8 @@ struct dvb_frontend *nm88472_attach(const struct nm88472_config *cfg,
 	memcpy(&priv->cfg, cfg, sizeof(struct nm88472_config));
 	memcpy(&priv->fe.ops, &nm88472_ops, sizeof(struct dvb_frontend_ops));
 	priv->fe.demodulator_priv = priv;
+
+	dev_info(&priv->i2c->dev, "%s: Attaching nm88472", KBUILD_MODNAME);	
 
 	return &priv->fe;
 error:
