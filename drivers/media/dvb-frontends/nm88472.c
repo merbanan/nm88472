@@ -289,7 +289,9 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 
 	/* Prepare DVB-T bank for firmware upload */
 	ret |= nm88472_wr_reg(priv, T1, 0xf0, 0x20);
+	/* Reset mcu */
 	ret |= nm88472_wr_reg(priv, T1, 0xf5, 0x03);
+
 	if (ret)
 		goto err_release;
 
@@ -299,21 +301,22 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 	if (ret)
 		goto err_release;
 
-	/* Start firmware */
-	ret |= nm88472_wr_reg(priv, T1, 0xf5, 0x00);
-	if (ret)
-		goto err_release;
-
-	/* Check parity */
-	ret |= nm88472_rd_reg(priv, T1, 0xf5, &val);
+	/* Check firmware parity */
+	ret |= nm88472_rd_reg(priv, T1, 0xf8, &val);
 	if (ret)
 		goto err_release;
 
 	if (val & 0x10) {
 		dev_info(&priv->i2c->dev, "%s: firmware '%s' parity check failed\n",
 				KBUILD_MODNAME, fw_file);
+		goto err_release;
 	}
-	
+
+	/* Start mcu with loaded firmware */
+	ret |= nm88472_wr_reg(priv, T1, 0xf5, 0x00);
+	if (ret)
+		goto err_release;
+
 err_release:
 	release_firmware(fw);
 err:
