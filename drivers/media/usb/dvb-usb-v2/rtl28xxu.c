@@ -247,7 +247,7 @@ static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 				req.data = &msg[0].buf[1];
 				ret = rtl28xxu_ctrl_msg(d, &req);
 			}
-		} else if (msg[0].len < 23) {
+		} else if (0 /*msg[0].len < 23*/) {
 			/* method 2 - old I2C */
 			req.value = (msg[0].buf[0] << 8) | (msg[0].addr << 1);
 			req.index = CMD_I2C_WR;
@@ -658,7 +658,7 @@ ret = rtl28xx_wr_regs(d, 0x3001, "\x08", 1); //010732
 ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //010735
 ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //010739
 #endif
-		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
+/*		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
 		if (ret)
 			goto err;
 
@@ -669,6 +669,8 @@ ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //010739
 		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_EN, 0x01, 0x01);
 		if (ret)
 			goto err;
+*/
+		
 	}
 
 	dev_err(&d->udev->dev, "%s:buf = %d, demod = %s, ret = %d\n", __func__, buf[0], priv->demod_name, ret);
