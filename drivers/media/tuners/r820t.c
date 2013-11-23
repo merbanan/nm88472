@@ -123,6 +123,15 @@ struct r820t_freq_range {
 static LIST_HEAD(hybrid_tuner_instance_list);
 static DEFINE_MUTEX(r820t_list_mutex);
 
+static char* tuner_chip_name[] = {
+	"r820t",
+	"r620d",
+	"r828d",
+	"r828",
+	"r828s",
+	"r820c",
+};
+
 /* Those initial values start from REG_SHADOW_START */
 static const u8 r820t_init_array[NUM_REGS] = {
 	0x83, 0x32, 0x75,			/* 05 to 07 */

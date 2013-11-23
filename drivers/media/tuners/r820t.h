@@ -33,15 +33,6 @@ enum r820t_chip {
 	CHIP_R820C,
 };
 
-static char* tuner_chip_name[] = {
-	"r820t",
-	"r620d",
-	"r828d",
-	"r828",
-	"r828s",
-	"r820c",
-};
-
 struct r820t_config {
 	u8 i2c_addr;		/* 0x34 */
 	u32 xtal;
