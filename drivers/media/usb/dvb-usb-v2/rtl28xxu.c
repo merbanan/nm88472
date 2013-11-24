@@ -94,6 +94,7 @@ err:
 
 static int rtl28xx_wr_regs(struct dvb_usb_device *d, u16 reg, u8 *val, int len)
 {
+	int ret;
 	struct rtl28xxu_req req;
 
 	if (reg < 0x3000)
@@ -107,7 +108,15 @@ static int rtl28xx_wr_regs(struct dvb_usb_device *d, u16 reg, u8 *val, int len)
 	req.size = len;
 	req.data = val;
 
-	return rtl28xxu_ctrl_msg(d, &req);
+	ret = rtl28xxu_ctrl_msg(d, &req);
+	if (ret)
+		ret = rtl28xxu_ctrl_msg(d, &req);
+	if (ret)
+		ret = rtl28xxu_ctrl_msg(d, &req);
+	if (ret)
+		ret = rtl28xxu_ctrl_msg(d, &req);
+	
+	return ret;
 }
 
 static int rtl2831_rd_regs(struct dvb_usb_device *d, u16 reg, u8 *val, int len)
@@ -247,13 +256,17 @@ static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 				req.data = &msg[0].buf[1];
 				ret = rtl28xxu_ctrl_msg(d, &req);
 			}
-		} else if (0 /*msg[0].len < 23*/) {
+		} else if (msg[0].len < 23) {
 			/* method 2 - old I2C */
 			req.value = (msg[0].buf[0] << 8) | (msg[0].addr << 1);
 			req.index = CMD_I2C_WR;
 			req.size = msg[0].len-1;
 			req.data = &msg[0].buf[1];
 			ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);				
 		} else {
 			/* method 3 - new I2C */
 			req.value = (msg[0].addr << 1);
@@ -1540,6 +1553,9 @@ err:
 static int rtl2832u_get_rc_config(struct dvb_usb_device *d,
 		struct dvb_usb_rc *rc)
 {
+	
+	return rtl28xx_wr_reg(d, IR_RX_IE, 0x00);
+
 	/* load empty to enable rc */
 	if (!rc->map_name)
 		rc->map_name = RC_MAP_EMPTY;
