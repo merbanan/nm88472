@@ -94,7 +94,6 @@ err:
 
 static int rtl28xx_wr_regs(struct dvb_usb_device *d, u16 reg, u8 *val, int len)
 {
-	int ret;
 	struct rtl28xxu_req req;
 
 	if (reg < 0x3000)
@@ -255,10 +254,16 @@ static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 			req.size = msg[0].len-1;
 			req.data = &msg[0].buf[1];
 			ret = rtl28xxu_ctrl_msg(d, &req);
-			if (ret)
+			if (ret) {
+				msleep(200);
 				ret = rtl28xxu_ctrl_msg(d, &req);
-			if (ret)
-				ret = rtl28xxu_ctrl_msg(d, &req);				
+			} if (ret) {
+				msleep(200);
+				ret = rtl28xxu_ctrl_msg(d, &req);
+			} if (ret) {
+				msleep(200);
+				ret = rtl28xxu_ctrl_msg(d, &req);
+			}
 		} else {
 			/* method 3 - new I2C */
 			req.value = (msg[0].addr << 1);
@@ -626,46 +631,49 @@ static int rtl2832p_read_config(struct dvb_usb_device *d)
 	}
 
 	if (priv->demod == DEMOD_NM88472) {
-#if 0
-ret = rtl28xx_wr_regs(d, 0x2000, "\x09", 1); //000059
-ret = rtl28xx_wr_regs(d, 0x2158, "\x00\x02", 2); //000063
-ret = rtl28xx_wr_regs(d, 0x215a, "\x00\x00", 2); //000065
-ret = rtl28xx_wr_regs(d, 0x2160, "\x14", 1); //000069
-ret = rtl28xx_wr_regs(d, 0x2148, "\x10\x02", 2); //000073
-ret = rtl28xx_wr_regs(d, 0x2148, "\x00\x00", 2); //000075
-ret = rtl28xx_wr_regs(d, 0x3007, "\x96", 1); //000079
-ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //000083
-ret = rtl28xx_wr_regs(d, 0x3004, "\x06", 1); //000086
-ret = rtl28xx_wr_regs(d, 0x3003, "\x19", 1); //000090
-ret = rtl28xx_wr_regs(d, 0x2010, "\x29", 1); //000094
-ret = rtl28xx_wr_regs(d, 0x300b, "\x22", 1); //000098
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000102
-ret = rtl28xx_wr_regs(d, 0x3000, "\x80", 1); //000106
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000110
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000174
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000178
+#if 1
+//ret = rtl28xx_wr_regs(d, 0x2000, "\x09", 1); //000059
+//ret = rtl28xx_wr_regs(d, 0x2158, "\x00\x02", 2); //000063
+//ret = rtl28xx_wr_regs(d, 0x215a, "\x00\x00", 2); //000065
+//ret = rtl28xx_wr_regs(d, 0x2160, "\x14", 1); //000069
+// ret = rtl28xx_wr_regs(d, 0x2148, "\x10\x02", 2); //000073
+// ret = rtl28xx_wr_regs(d, 0x2148, "\x00\x00", 2); //000075
+// ret = rtl28xx_wr_regs(d, 0x3007, "\x96", 1); //000079
+//ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //000083
+//ret = rtl28xx_wr_regs(d, 0x3004, "\x06", 1); //000086
+//ret = rtl28xx_wr_regs(d, 0x3003, "\x19", 1); //000090
+// ret = rtl28xx_wr_regs(d, 0x2010, "\x29", 1); //000094
+// ret = rtl28xx_wr_regs(d, 0x300b, "\x22", 1); //000098
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000102
+// ret = rtl28xx_wr_regs(d, 0x3000, "\x80", 1); //000106
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000110
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000174
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //000178
 
-ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007145
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //007149
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //007153
-ret = rtl28xx_wr_regs(d, 0x3000, "\x20", 1); //007157
-ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //007266
-ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //007270
-ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007274
-ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //007377
-ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //007384
-ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007392
-ret = rtl28xx_wr_regs(d, 0x2148, "\x10\x02", 2); //010623
-ret = rtl28xx_wr_regs(d, 0x2148, "\x00\x00", 2); //010624
-ret = rtl28xx_wr_regs(d, 0x300b, "\x02", 1); //010655
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010658
-ret = rtl28xx_wr_regs(d, 0x3000, "\x80", 1); //010662
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010665
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010725
-ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010728
-ret = rtl28xx_wr_regs(d, 0x3001, "\x08", 1); //010732
-ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //010735
-ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //010739
+// ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007145
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //007149
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //007153
+// ret = rtl28xx_wr_regs(d, 0x3000, "\x20", 1); //007157
+// ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //007266
+// ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //007270
+// ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007274
+// ret = rtl28xx_wr_regs(d, 0x3001, "\x18", 1); //007377
+// ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //007384
+// ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //007392
+// ret = rtl28xx_wr_regs(d, 0x2148, "\x10\x02", 2); //010623
+// ret = rtl28xx_wr_regs(d, 0x2148, "\x00\x00", 2); //010624
+// ret = rtl28xx_wr_regs(d, 0x300b, "\x02", 1); //010655
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010658
+// ret = rtl28xx_wr_regs(d, 0x3000, "\x80", 1); //010662
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010665
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010725
+// ret = rtl28xx_wr_regs(d, 0x3000, "\xa0", 1); //010728
+//ret = rtl28xx_wr_regs(d, 0x3001, "\x08", 1); //010732
+//ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //010735
+//ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //010739
+ret = rtl28xx_wr_regs(d, 0x3001, "\x09", 1); //017348
+ret = rtl28xx_wr_regs(d, 0x3004, "\x02", 1); //017352
+ret = rtl28xx_wr_regs(d, 0x3003, "\xdd", 1); //017356
 #endif
 /*		ret = rtl28xx_wr_reg_mask(d, SYS_GPIO_OUT_VAL, 0x00, 0x01);
 		if (ret)
@@ -705,9 +713,9 @@ found:
 	dev_dbg(&d->udev->dev, "%s: tuner=%s\n", __func__, priv->tuner_name);
 
 	/* close demod I2C gate */
-	ret = rtl28xxu_ctrl_msg(d, &req_gate_close);
-	if (ret < 0)
-		goto err;
+// 	ret = rtl28xxu_ctrl_msg(d, &req_gate_close);
+// 	if (ret < 0)
+// 		goto err;
 
 	return 0;
 err:
@@ -986,23 +994,23 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 		}
 		break;
 	case DEMOD_NM88472:
-		adap->fe[0] = dvb_attach(rtl2832_attach, rtl2832_config, &d->i2c_adap);
-		if (!adap->fe[0]) {
-			dev_err(&d->udev->dev, "%s:  rtl2832 demod failed to attach!\n",
-				KBUILD_MODNAME);
-			ret = -ENODEV;
-			goto err;
-		}
+// 		adap->fe[0] = dvb_attach(rtl2832_attach, rtl2832_config, &d->i2c_adap);
+// 		if (!adap->fe[0]) {
+// 			dev_err(&d->udev->dev, "%s:  rtl2832 demod failed to attach!\n",
+// 				KBUILD_MODNAME);
+// 			ret = -ENODEV;
+// 			goto err;
+// 		}
 
-		adap->fe[1] = dvb_attach(nm88472_attach, nm88472_config, &d->i2c_adap);
-		if (!adap->fe[1]) {
+		adap->fe[0] = dvb_attach(nm88472_attach, nm88472_config, &d->i2c_adap);
+		if (!adap->fe[0]) {
 			dev_err(&d->udev->dev, "%s: nm88472 demod failed to attach!\n",
 				KBUILD_MODNAME);
 			ret = -ENODEV;
 			goto err;
 		}
-		/* rt828d tuner and nm88472 demod is behind rtl2832 demod I2C-gate */
-		adap->fe[1]->ops.i2c_gate_ctrl = adap->fe[0]->ops.i2c_gate_ctrl;
+// 		/* rt828d tuner and nm88472 demod is behind rtl2832 demod I2C-gate */
+// 		adap->fe[1]->ops.i2c_gate_ctrl = adap->fe[0]->ops.i2c_gate_ctrl;
 
 		break;
 	default:
