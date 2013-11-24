@@ -367,9 +367,6 @@ static int nm88472_init(struct dvb_frontend *fe)
 static void nm88472_release(struct dvb_frontend *fe)
 {
 	struct nm88472_priv *priv = fe->demodulator_priv;
-	int uninitialized_var(ret); /* silence compiler warning */
-
-//	dev_dbg(&priv->i2c->dev, "%s\n", __func__);
 
 	kfree(priv);
 	return;
