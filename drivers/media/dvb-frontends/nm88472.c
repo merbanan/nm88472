@@ -372,12 +372,135 @@ static void nm88472_release(struct dvb_frontend *fe)
 	return;
 }
 
+static int nm88472_set_frontend(struct dvb_frontend *fe)
+{
+	struct nm88472_priv *priv = fe->demodulator_priv;
+	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+	int ret;
+
+	dev_dbg(&priv->i2c->dev, "%s: delsys=%d\n", __func__,
+	fe->dtv_property_cache.delivery_system);
+
+	switch (c->delivery_system) {
+	case SYS_DVBT:
+		ret = nm88472_set_frontend_t(fe);
+		if (ret < 0)
+			goto err;
+		break;
+	case SYS_DVBT2:
+		ret = nm88472_set_frontend_t2(fe);
+		if (ret < 0)
+			goto err;
+		break;
+	case SYS_DVBC_ANNEX_A:
+		ret = nm88472_set_frontend_c(fe);
+		if (ret < 0)
+			goto err;
+		break;
+	default:
+		dev_dbg(&priv->i2c->dev, "%s: error state=%d\n", __func__,
+			fe->dtv_property_cache.delivery_system);
+		ret = -EINVAL;
+		break;
+	}
+	err:
+	return ret;
+}
+
+static enum dvbfe_search nm88472_search(struct dvb_frontend *fe)
+{
+	struct nm88472_priv *priv = fe->demodulator_priv;
+	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+	int ret, i;
+	fe_status_t status = 0;
+
+	dev_dbg(&priv->i2c->dev, "%s: delsys=%d\n", __func__,
+		fe->dtv_property_cache.delivery_system);
+#if 0
+	/* switch between DVB-T and DVB-T2 when tune fails */
+	if (priv->last_tune_failed) {
+		if (priv->delivery_system == SYS_DVBT) {
+			ret = cxd2820r_sleep_t(fe);
+		if (ret)
+			goto error;
+
+		c->delivery_system = SYS_DVBT2;
+		} else if (priv->delivery_system == SYS_DVBT2) {
+			ret = cxd2820r_sleep_t2(fe);
+			if (ret)
+				goto error;
+
+			c->delivery_system = SYS_DVBT;
+		}
+	}
+#endif
+	/* set frontend */
+	ret = nm88472_set_frontend(fe);
+	if (ret)
+	  goto error;
+
+	/* hack */
+	return DVBFE_ALGO_SEARCH_SUCCESS;
+
+#if 0
+	/* frontend lock wait loop count */
+	switch (priv->delivery_system) {
+	case SYS_DVBT:
+	case SYS_DVBC_ANNEX_A:
+	  i = 20;
+	  break;
+	case SYS_DVBT2:
+	  i = 40;
+	  break;
+	case SYS_UNDEFINED:
+	default:
+	  i = 0;
+	  break;
+	}
+
+	/* wait frontend lock */
+	for (; i > 0; i--) {
+	  dev_dbg(&priv->i2c->dev, "%s: loop=%d\n", __func__, i);
+	  msleep(50);
+	  ret = cxd2820r_read_status(fe, &status);
+	  if (ret)
+	    goto error;
+
+	  if (status & FE_HAS_LOCK)
+	    break;
+	}
+
+	/* check if we have a valid signal */
+	if (status & FE_HAS_LOCK) {
+	  priv->last_tune_failed = 0;
+	  return DVBFE_ALGO_SEARCH_SUCCESS;
+	} else {
+	  priv->last_tune_failed = 1;
+	  return DVBFE_ALGO_SEARCH_AGAIN;
+	}
+#endif
+error:
+	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);
+	return DVBFE_ALGO_SEARCH_ERROR;
+}
+
+static int nm88472_get_frontend_algo(struct dvb_frontend *fe)
+{
+	return DVBFE_ALGO_CUSTOM;
+}
+
 static const struct dvb_frontend_ops nm88472_ops = {
 	.delsys = { SYS_DVBT, SYS_DVBT2, SYS_DVBC_ANNEX_A },
 	/* default: DVB-T/T2 */
 	.info = {
 		.name = "Panasonic NM88472",
-
+		.frequency_min = 47000000,
+		.frequency_max = 865000000,
+		/* For DVB-C */
+		.symbol_rate_min = 870000,
+		.symbol_rate_max = 11700000,
+		/* For DVB-T */
+		.frequency_stepsize = 166667,
 		.caps =	FE_CAN_FEC_1_2			|
 			FE_CAN_FEC_2_3			|
 			FE_CAN_FEC_3_4			|
@@ -405,8 +528,8 @@ static const struct dvb_frontend_ops nm88472_ops = {
 
 //	.get_tune_settings	= nm88472_get_tune_settings,
 //	.get_frontend		= nm88472_get_frontend,
-//	.get_frontend_algo	= nm88472_get_frontend_algo,
-//	.search			= nm88472_search,
+	.get_frontend_algo	= nm88472_get_frontend_algo,
+	.search				= nm88472_search,
 
 //	.read_status		= nm88472_read_status,
 //	.read_snr		= nm88472_read_snr,
