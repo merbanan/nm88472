@@ -266,6 +266,10 @@ static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 			req.size = msg[0].len;
 			req.data = msg[0].buf;
 			ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);	
 		}
 	} else {
 		ret = -EINVAL;
