@@ -108,15 +108,7 @@ static int rtl28xx_wr_regs(struct dvb_usb_device *d, u16 reg, u8 *val, int len)
 	req.size = len;
 	req.data = val;
 
-	ret = rtl28xxu_ctrl_msg(d, &req);
-	if (ret)
-		ret = rtl28xxu_ctrl_msg(d, &req);
-	if (ret)
-		ret = rtl28xxu_ctrl_msg(d, &req);
-	if (ret)
-		ret = rtl28xxu_ctrl_msg(d, &req);
-	
-	return ret;
+	return rtl28xxu_ctrl_msg(d, &req);;
 }
 
 static int rtl2831_rd_regs(struct dvb_usb_device *d, u16 reg, u8 *val, int len)
