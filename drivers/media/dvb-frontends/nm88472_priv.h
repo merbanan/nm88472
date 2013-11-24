@@ -51,6 +51,7 @@ struct nm88472_priv {
 	struct dvb_frontend fe;
 	struct nm88472_config cfg;
 
+	int demod_init;
 	bool ber_running;
 	u8 bank[3];
 

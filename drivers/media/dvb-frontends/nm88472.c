@@ -89,8 +89,10 @@ int nm88472_rd_reg(struct nm88472_priv *priv, u8 bank_adr, u8 reg, u8 *val)
 int nm88472_wr_table(struct nm88472_priv *priv, const struct nm88472_i2c_reg_byte* table, int tab_length)
 {
 	int i, ret = 0;
-	for (i=0 ; i<tab_length ; i++)
+	for (i=0 ; i<tab_length ; i++) {
 		ret |= nm88472_wr_reg(priv, table[i].i2c_bank, table[i].addr, table[i].val);
+//		msleep(20);
+	}
 	return ret;
 }
 
@@ -258,7 +260,7 @@ static int nm88472_read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
 
 static int nm88472_initialize_demod(struct nm88472_priv *priv)
 {
-	int i, ret;
+	int i, ret = 0;
 	const struct firmware *fw;
 	u8 val;
 	u8 *fw_file = NM88472_FIRMWARE;
@@ -297,6 +299,7 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 
 	for (i = 0; i < fw->size; i++) {
 		ret |= nm88472_wr_reg(priv, T1, 0xf6, fw->data[i]);
+//		msleep(20);
 	}
 	if (ret)
 		goto err_release;
@@ -317,9 +320,13 @@ static int nm88472_initialize_demod(struct nm88472_priv *priv)
 	if (ret)
 		goto err_release;
 
+	priv->demod_init = 1;
 err_release:
 	release_firmware(fw);
 err:
+	if (ret)
+		dev_info(&priv->i2c->dev, "%s: '%s' demod init failed\n",
+				KBUILD_MODNAME, nm88472_ops.info.name);
 	if (!ret)
 		dev_info(&priv->i2c->dev, "%s: '%s' demod initialized\n",
 				KBUILD_MODNAME, nm88472_ops.info.name);
@@ -356,11 +363,14 @@ static int nm88472_set_serial_ts_mode(struct nm88472_priv *priv)
 static int nm88472_init(struct dvb_frontend *fe)
 {
 	int ret;
-	
+	struct nm88472_priv *priv;
+	priv = fe->demodulator_priv;
 //	dev_info(&priv->i2c->dev, "%s: Init", KBUILD_MODNAME);	
+	if (priv->demod_init)
+		return 0;
 
-	ret  = nm88472_initialize_demod(fe->demodulator_priv);
-	ret |= nm88472_set_serial_ts_mode(fe->demodulator_priv);
+	ret  = nm88472_initialize_demod(priv);
+	ret |= nm88472_set_serial_ts_mode(priv);
 	return ret;
 }
 
@@ -410,9 +420,9 @@ static int nm88472_set_frontend(struct dvb_frontend *fe)
 static enum dvbfe_search nm88472_search(struct dvb_frontend *fe)
 {
 	struct nm88472_priv *priv = fe->demodulator_priv;
-	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
-	int ret, i;
-	fe_status_t status = 0;
+//	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+	int ret;
+//	fe_status_t status = 0;
 
 	dev_dbg(&priv->i2c->dev, "%s: delsys=%d\n", __func__,
 		fe->dtv_property_cache.delivery_system);
