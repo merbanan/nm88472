@@ -447,7 +447,7 @@ static enum dvbfe_search nm88472_search(struct dvb_frontend *fe)
 	/* set frontend */
 	ret = nm88472_set_frontend(fe);
 	if (ret)
-	  goto error;
+	  return DVBFE_ALGO_SEARCH_AGAIN;
 
 	/* hack */
 	return DVBFE_ALGO_SEARCH_SUCCESS;
@@ -488,8 +488,8 @@ static enum dvbfe_search nm88472_search(struct dvb_frontend *fe)
 	  priv->last_tune_failed = 1;
 	  return DVBFE_ALGO_SEARCH_AGAIN;
 	}
-#endif
 error:
+#endif
 	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);
 	return DVBFE_ALGO_SEARCH_ERROR;
 }
@@ -497,6 +497,48 @@ error:
 static int nm88472_get_frontend_algo(struct dvb_frontend *fe)
 {
 	return DVBFE_ALGO_CUSTOM;
+}
+
+static int nm88472_read_signal_strength(struct dvb_frontend *fe, u16 *strength)
+{
+	*strength = 0;
+	return 0;
+}
+
+static int nm88472_read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
+{
+	*ucblocks = 0;
+	/* no way to read ? */
+	return 0;
+}
+
+int nm88472_read_ber(struct dvb_frontend *fe, u32 *ber)
+{
+	*ber = 0;
+	return 0;
+}
+
+int nm88472_read_snr(struct dvb_frontend *fe, u16 *snr)
+{
+	*snr = 0;
+	return 0;
+}
+
+int nm88472_read_status(struct dvb_frontend *fe, fe_status_t *status)
+{
+	*status = 0;
+	return 0;
+};
+
+static int nm88472_get_frontend(struct dvb_frontend *fe)
+{
+	return -EINVAL;
+}
+
+static int nm88472_get_tune_settings(struct dvb_frontend *fe,
+				      struct dvb_frontend_tune_settings *s)
+{
+	return -EINVAL;
 }
 
 static const struct dvb_frontend_ops nm88472_ops = {
@@ -536,16 +578,16 @@ static const struct dvb_frontend_ops nm88472_ops = {
 	.init			= nm88472_init,
 //	.sleep			= nm88472_sleep,
 
-//	.get_tune_settings	= nm88472_get_tune_settings,
-//	.get_frontend		= nm88472_get_frontend,
+	.get_tune_settings	= nm88472_get_tune_settings,
+	.get_frontend		= nm88472_get_frontend,
 	.get_frontend_algo	= nm88472_get_frontend_algo,
 	.search				= nm88472_search,
 
-//	.read_status		= nm88472_read_status,
-//	.read_snr		= nm88472_read_snr,
-//	.read_ber		= nm88472_read_ber,
-//	.read_ucblocks		= nm88472_read_ucblocks,
-//	.read_signal_strength	= nm88472_read_signal_strength,
+	.read_status		= nm88472_read_status,
+	.read_snr		= nm88472_read_snr,
+	.read_ber		= nm88472_read_ber,
+	.read_ucblocks		= nm88472_read_ucblocks,
+	.read_signal_strength	= nm88472_read_signal_strength,
 };
 
 
