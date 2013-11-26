@@ -526,8 +526,52 @@ int nm88472_read_snr(struct dvb_frontend *fe, u16 *snr)
 
 int nm88472_read_status(struct dvb_frontend *fe, fe_status_t *status)
 {
+	struct nm88472_priv *priv = fe->demodulator_priv;
+	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+	int ret;
+	u8 buf;
 	*status = 0;
-	return 0;
+
+	dev_dbg(&priv->i2c->dev, "%s: delsys=%d\n", __func__,
+		fe->dtv_property_cache.delivery_system);
+
+	switch (c->delivery_system) {
+	case SYS_DVBT:
+		ret = nm88472_rd_reg(priv, T1, 0x7f, &buf);
+		if (ret)
+			goto error;
+		if ((buf&0x0f) > 8)
+			*status |= FE_HAS_SIGNAL | FE_HAS_CARRIER |
+				FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK;
+		break;
+	case SYS_DVBT2:
+		ret = nm88472_rd_reg(priv, T2, 0x92, &buf);
+		if (ret)
+			goto error;
+		if ((buf&0x0f) > 12)
+			*status |= FE_HAS_SIGNAL | FE_HAS_CARRIER |
+				FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK;
+		break;
+	case SYS_DVBC_ANNEX_A:
+		ret = nm88472_rd_reg(priv, C1, 0x83, &buf);
+		if (ret)
+			goto error;
+		if ((buf&0x0f) > 7)
+			*status |= FE_HAS_SIGNAL | FE_HAS_CARRIER |
+				FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK;
+		break;
+	default:
+		dev_dbg(&priv->i2c->dev, "%s: error state=%d\n", __func__,
+			fe->dtv_property_cache.delivery_system);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+	
+error:
+	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);	
+	return ret;
 };
 
 static int nm88472_get_frontend(struct dvb_frontend *fe)
