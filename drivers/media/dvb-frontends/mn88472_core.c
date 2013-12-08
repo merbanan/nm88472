@@ -127,6 +127,11 @@ static int mn88472_set_frontend(struct dvb_frontend *fe)
 		if (ret < 0)
 			goto err;
 		break;
+	case SYS_DVBT:
+		ret = mn88472_set_frontend_t(fe);
+		if (ret < 0)
+			goto err;
+		break;
 	default:
 		dev_dbg(&priv->i2c->dev, "%s: error state=%d\n", __func__,
 				fe->dtv_property_cache.delivery_system);
@@ -149,6 +154,9 @@ static int mn88472_read_status(struct dvb_frontend *fe, fe_status_t *status)
 	case SYS_DVBC_ANNEX_A:
 		ret = mn88472_read_status_c(fe, status);
 		break;
+	case SYS_DVBT:
+		ret = mn88472_read_status_t(fe, status);
+		break;	
 	default:
 		ret = -EINVAL;
 		break;
@@ -292,7 +300,7 @@ err:
 EXPORT_SYMBOL(mn88472_attach);
 
 static struct dvb_frontend_ops mn88472_ops = {
-	.delsys = {SYS_DVBC_ANNEX_A},
+	.delsys = { SYS_DVBT, SYS_DVBC_ANNEX_A},
 	.info = {
 		.name = "Panasonic MN88472",
 		.caps =	FE_CAN_FEC_1_2			|

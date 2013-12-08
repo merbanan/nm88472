@@ -42,4 +42,8 @@ int mn88472_wreg(struct mn88472_priv *s, u16 reg, u8 val);
 int mn88472_read_status_c(struct dvb_frontend *fe, fe_status_t *status);
 int mn88472_set_frontend_c(struct dvb_frontend *fe);
 
+/* mn88472_t.c */
+int mn88472_set_frontend_t(struct dvb_frontend *fe);
+int mn88472_read_status_t(struct dvb_frontend *fe, fe_status_t *status);
+
 #endif /* MN88472_PRIV_H */
