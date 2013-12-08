@@ -23,9 +23,9 @@ int mn88472_set_frontend_t(struct dvb_frontend *fe)
 	int ret;
 	u32 if_frequency = 0;
 	dev_dbg(&s->i2c->dev,
-			"%s: delivery_system=%d modulation=%d frequency=%d symbol_rate=%d inversion=%d\n",
+			"%s: delivery_system=%d modulation=%d frequency=%d symbol_rate=%d inversion=%d bw=%d\n",
 			__func__, c->delivery_system, c->modulation,
-			c->frequency, c->symbol_rate, c->inversion);
+			c->frequency, c->symbol_rate, c->inversion, c->bandwidth_hz);
 
 	if (!s->warm) {
 		ret = -EAGAIN;
@@ -51,25 +51,50 @@ int mn88472_set_frontend_t(struct dvb_frontend *fe)
 	if (if_frequency != 5070000) {
 		dev_err(&s->i2c->dev, "%s: IF frequency %d not supported\n",
 				KBUILD_MODNAME, if_frequency);
-		ret = -EINVAL;
-		goto err;
+//		ret = -EINVAL;
+//		goto err;
 	}
 
-	
 	/* Set ts mode to serial */
-	ret = mn88472_wregs(s, 0x1c08, "\x1d", 1);
-	if (ret)
-		goto err;
-
-	ret = mn88472_wregs(s, 0x18d9, "\xe3", 1);
-	if (ret)
-		goto err;
 
 
-	/* Generic init for DVB-T*/
 	ret = mn88472_wregs(s, 0x1c83, "\x01", 1);
 	if (ret)
 		goto err;
+
+    ret = mn88472_wregs(s, 0x1c08, "\x1d", 1);
+    if (ret)
+        goto err;
+
+    ret = mn88472_wregs(s, 0x18d9, "\xe3", 1);
+    if (ret)
+        goto err;
+	ret = mn88472_wregs(s, 0x1c83, "\x01", 1);
+	if (ret)
+		goto err;
+
+	
+	/* Generic init */
+	ret = mn88472_wregs(s, 0x1c05, "\x00", 1);
+	if (ret)
+		goto err;
+	ret = mn88472_wregs(s, 0x1c0b, "\x00", 1);
+	if (ret)
+		goto err;
+	ret = mn88472_wregs(s, 0x1c0c, "\x00", 1);
+	if (ret)
+		goto err;
+
+	ret = mn88472_wregs(s, 0x1cff, "\x00", 1);
+	if (ret)
+		goto err;
+
+
+
+	/* Generic init for DVB-T */
+//	ret = mn88472_wregs(s, 0x1c83, "\x01", 1);
+//	if (ret)
+//		goto err;
 
 	ret = mn88472_wregs(s, 0x1c00, "\x66\x00\x01\x02", 4);
 	if (ret)
@@ -101,22 +126,25 @@ int mn88472_set_frontend_t(struct dvb_frontend *fe)
 		ret = mn88472_wregs(s, 0x1846, "\x10", 1);
 		if (ret)
 			goto err;
+		break;
 	case 8000000:
 		ret = mn88472_wregs(s, 0x1c04, "\x00", 1);
 		if (ret)
 			goto err;
 
-		ret = mn88472_wregs(s, 0x1c10, "\x39\x11\xbc\x8f\x80\x00\x08\xee\x08\xee", 10);
+		ret = mn88472_wregs(s, 0x1c10, 
+				"\x39\x11\xbc\x8f\x80\x00\x08\xee\x08\xee", 10);
 		if (ret)
 			goto err;
 
 		ret = mn88472_wregs(s, 0x1846, "\x00", 1);
 		if (ret)
 			goto err;
+		break;
 	default:
 		return -EINVAL;
 	}
-
+	
 	ret = mn88472_wregs(s, 0x18ae, "\x00", 1);
 	if (ret)
 		goto err;
@@ -133,6 +161,17 @@ int mn88472_set_frontend_t(struct dvb_frontend *fe)
 	if (ret)
 		goto err;
 	ret = mn88472_wregs(s, 0x18d6, "\x48", 1);
+	if (ret)
+		goto err;
+	ret = mn88472_wregs(s, 0x1800, "\xba\x13", 2);
+	if (ret)
+		goto err;
+
+	ret = mn88472_wregs(s, 0x1816, "\x00", 1);
+	if (ret)
+		goto err;
+
+	ret = mn88472_wregs(s, 0x1cf8, "\x9f", 1);
 	if (ret)
 		goto err;
 

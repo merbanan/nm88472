@@ -219,6 +219,14 @@ static int mn88472_init(struct dvb_frontend *fe)
 	if (ret)
 		goto err;
 
+/*	ret = mn88472_wregs(s, 0x1c08, "\x1d", 1);
+	if (ret)
+		goto err;
+
+	ret = mn88472_wregs(s, 0x18d9, "\xe3", 1);
+	if (ret)
+		goto err;
+*/	
 	release_firmware(fw);
 	fw = NULL;
 
