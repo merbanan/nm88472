@@ -156,6 +156,7 @@ static int rtl28xx_wr_reg_mask(struct dvb_usb_device *d, u16 reg, u8 val,
 static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 	int num)
 {
+	int retry = 0;
 	int ret;
 	struct dvb_usb_device *d = i2c_get_adapdata(adap);
 	struct rtl28xxu_priv *priv = d->priv;
@@ -247,14 +248,27 @@ static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 			req.index = CMD_I2C_WR;
 			req.size = msg[0].len-1;
 			req.data = &msg[0].buf[1];
+retry_2:
 			ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret) {
+				msleep(50);
+				retry++;
+				if (retry < 20) goto retry_2;
+			}
+			
 		} else {
 			/* method 3 - new I2C */
 			req.value = (msg[0].addr << 1);
 			req.index = CMD_I2C_DA_WR;
 			req.size = msg[0].len;
 			req.data = msg[0].buf;
+retry_1:
 			ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret) {
+				msleep(50);
+				retry++;
+				if (retry < 20) goto retry_1;
+			}
 		}
 	} else {
 		ret = -EINVAL;
@@ -1381,6 +1395,9 @@ err:
 static int rtl2832u_get_rc_config(struct dvb_usb_device *d,
 		struct dvb_usb_rc *rc)
 {
+	
+	return rtl28xx_wr_reg(d, IR_RX_IE, 0x00);
+	
 	/* load empty to enable rc */
 	if (!rc->map_name)
 		rc->map_name = RC_MAP_EMPTY;
