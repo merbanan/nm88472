@@ -248,13 +248,22 @@ static int rtl28xxu_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msg[],
 			req.size = msg[0].len-1;
 			req.data = &msg[0].buf[1];
 			ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);  
 		} else {
 			/* method 3 - new I2C */
 			req.value = (msg[0].addr << 1);
 			req.index = CMD_I2C_DA_WR;
 			req.size = msg[0].len;
 			req.data = msg[0].buf;
+			
 			ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);
+			if (ret)
+				ret = rtl28xxu_ctrl_msg(d, &req);  
 		}
 	} else {
 		ret = -EINVAL;
