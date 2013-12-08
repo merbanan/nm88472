@@ -641,7 +641,7 @@ static struct rtl2832_config rtl28xxu_rtl2832_r820t_config = {
 	.tuner = TUNER_RTL2832_R820T,
 };
 
-static const struct mn88472_c_config rtl28xxu_mn88472_config = {
+static const struct mn88472_config rtl28xxu_mn88472_config = {
 	.i2c_wr_max = 22,
 };
 
@@ -823,7 +823,7 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 		struct dvb_frontend *fe;
 
 		/* attach demodulator */
-		fe = dvb_attach(mn88472_attach_c, &rtl28xxu_mn88472_config,
+		fe = dvb_attach(mn88472_attach, &rtl28xxu_mn88472_config,
 				priv->demod_i2c_adapter);
 		if (fe == NULL) {
 			dev_warn(&d->udev->dev, "%s: MN88472 attach failed\n",
