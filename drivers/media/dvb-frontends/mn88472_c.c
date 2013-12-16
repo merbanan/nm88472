@@ -331,6 +331,10 @@ ret = mn88472_wregs(s, 0x1c0b, "\x00", 1); // generated
 	if (ret)
 		goto err;// 007980:  OUT: 000003 ms 080125 ms 40 00 38 00 10 06 02 00 >>>  0c 00
 ret = mn88472_wregs(s, 0x1c0c, "\x00", 1); // generated
+
+	ret = mn88472_rreg(s, 0x1c8e, &u8tmp);
+
+
 	if (ret)
 		goto err;// 007981:  OUT: 000002 ms 080128 ms 40 00 38 00 10 06 02 00 >>>  ff 00
 ret = mn88472_wregs(s, 0x1cff, "\x00", 1); // generated
@@ -498,6 +502,7 @@ static int mn88472_init_c(struct dvb_frontend *fe)
 	const struct firmware *fw = NULL;
 	u8 *fw_file = MN88472_FIRMWARE;
 	dev_dbg(&s->i2c->dev, "%s:\n", __func__);
+	u8 u8tmp;
 
 // 	if (s->warm == true)
 // 		return 0;
@@ -506,14 +511,14 @@ static int mn88472_init_c(struct dvb_frontend *fe)
 	s->warm = false;
 
 	/* power on */
-	ret = mn88472_wreg(s, 0x1c05, 0x00);
+/*	ret = mn88472_wreg(s, 0x1c05, 0x00);
 	if (ret)
 		goto err;
 
 	ret = mn88472_wregs(s, 0x1c0b, "\x00\x00", 2);
 	if (ret)
 		goto err;
-
+*/
 	/* Load init tables */
 	
 	ret = nm88472_wr_table(s, demod_bank_init, ARRAY_SIZE(demod_bank_init));
@@ -531,6 +536,10 @@ static int mn88472_init_c(struct dvb_frontend *fe)
 
 	dev_info(&s->i2c->dev, "%s: downloading firmware from file '%s'\n",
 			KBUILD_MODNAME, fw_file);
+
+	ret = mn88472_wreg(s, 0x18f0, 0x20);
+	if (ret)
+		goto err;
 
 	ret = mn88472_wreg(s, 0x18f5, 0x03);
 	if (ret)
@@ -556,6 +565,24 @@ static int mn88472_init_c(struct dvb_frontend *fe)
 	if (ret)
 		goto err;
 
+	ret = mn88472_rreg(s, 0x18f8, &u8tmp);
+	if (ret)
+		goto err;
+
+	
+ret = mn88472_wregs(s, 0x1c08, "\x1d", 1); // generated
+// 006242:  OUT: 000002 ms 074889 ms 40 00 30 00 10 06 02 00 >>>  d9 e3
+ret = mn88472_wregs(s, 0x18d9, "\xe3", 1); // generated
+
+
+	ret = mn88472_wreg(s, 0x1c05, 0x30);
+	if (ret)
+		goto err;
+
+	ret = mn88472_wregs(s, 0x1c0b, "\x3e", 1);
+	if (ret)
+		goto err;
+	
 	release_firmware(fw);
 	fw = NULL;
 

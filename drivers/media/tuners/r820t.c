@@ -127,11 +127,11 @@ static DEFINE_MUTEX(r820t_list_mutex);
 static const u8 r820t_init_array[NUM_REGS] = {
 	0x83, 0x32, 0x75,			/* 05 to 07 */
 	0xc0, 0x40, 0xd6, 0x6c,			/* 08 to 0b */
-	0xf5, 0x63, 0x75, 0x68,			/* 0c to 0f */
+	0xf5, 0x53, 0x75, 0x78,			/* 0c to 0f */
 	0x6c, 0x83, 0x80, 0x00,			/* 10 to 13 */
 	0x0f, 0x00, 0xc0, 0x30,			/* 14 to 17 */
 	0x48, 0xcc, 0x60, 0x00,			/* 18 to 1b */
-	0x54, 0xae, 0x4a, 0xc0			/* 1c to 1f */
+	0x54, 0xa6, 0x4a, 0xc0			/* 1c to 1f */
 };
 
 /* Tuner frequency ranges */
@@ -328,12 +328,12 @@ static const struct r820t_freq_range freq_ranges[] = {
 	}
 };
 
-static int r820t_xtal_capacitor[][2] = {
-	{ 0x0b, XTAL_LOW_CAP_30P },
-	{ 0x02, XTAL_LOW_CAP_20P },
-	{ 0x01, XTAL_LOW_CAP_10P },
-	{ 0x00, XTAL_LOW_CAP_0P  },
-	{ 0x10, XTAL_HIGH_CAP_0P },
+static int r820t_xtal_capacitor[][3] = {
+	{ 0x0b, 0x1b, XTAL_LOW_CAP_30P },
+	{ 0x02, 0x1b, XTAL_LOW_CAP_20P },
+	{ 0x01, 0x1b, XTAL_LOW_CAP_10P },
+	{ 0x00, 0x1b, XTAL_LOW_CAP_0P  },
+	{ 0x10, 0x1b, XTAL_HIGH_CAP_0P },
 };
 
 /*
@@ -1368,7 +1368,7 @@ static int r820t_xtal_check(struct r820t_priv *priv)
 
 	/* Initialize the shadow registers */
 	memcpy(priv->regs, r820t_init_array, sizeof(r820t_init_array));
-
+printk("r820t_xtal_check\n");
 	/* cap 30pF & Drive Low */
 	rc = r820t_write_reg_mask(priv, 0x10, 0x0b, 0x0b);
 	if (rc < 0)
@@ -1389,42 +1389,45 @@ static int r820t_xtal_check(struct r820t_priv *priv)
 	if (rc < 0)
 		return rc;
 
+	usleep_range(5000, 6000);
+
 	/* Try several xtal capacitor alternatives */
 	for (i = 0; i < ARRAY_SIZE(r820t_xtal_capacitor); i++) {
+
+		rc = r820t_read(priv, 0x00, data, sizeof(data));
+		if (rc < 0)
+			return rc;
+		if (!(data[2] & 0x40))
+			break;
+		val = data[2] & 0x3f;
+		if (priv->cfg->xtal == 16000000 && (val > 29 || val < 23))
+			break;
+		if (val != 0x3f)
+			break;
+
+
 		rc = r820t_write_reg_mask(priv, 0x10,
 					  r820t_xtal_capacitor[i][0], 0x1b);
 		if (rc < 0)
 			return rc;
 
 		usleep_range(5000, 6000);
-
-		rc = r820t_read(priv, 0x00, data, sizeof(data));
-		if (rc < 0)
-			return rc;
-		if (!(data[2] & 0x40))
-			continue;
-
-		val = data[2] & 0x3f;
-
-		if (priv->cfg->xtal == 16000000 && (val > 29 || val < 23))
-			break;
-
-		if (val != 0x3f)
-			break;
 	}
 
 	if (i == ARRAY_SIZE(r820t_xtal_capacitor))
 		return -EINVAL;
 
-	return r820t_xtal_capacitor[i][1];
+	return r820t_xtal_capacitor[i][2];
 }
 
 static int r820t_imr_prepare(struct r820t_priv *priv)
 {
 	int rc;
+	u8 reg06;
 
 	/* Initialize the shadow registers */
 	memcpy(priv->regs, r820t_init_array, sizeof(r820t_init_array));
+printk("r820t_imr_prepare\n");
 
 	/* lna off (air-in off) */
 	rc = r820t_write_reg_mask(priv, 0x05, 0x20, 0x20);
@@ -1472,7 +1475,9 @@ static int r820t_imr_prepare(struct r820t_priv *priv)
 		return rc;
 
 	/* Set filt_3dB */
-	rc = r820t_write_reg_mask(priv, 0x06, 0x20, 0x20);
+//	rc = r820t_write_reg(priv, 0x06, r820t_read_reg(priv, 0x06)  );
+	reg06 = r820t_read_cache_reg(priv, 6) & 0xdf;
+	rc = r820t_write_reg(priv, 0x06, reg06);
 
 	return rc;
 }
@@ -1480,8 +1485,11 @@ static int r820t_imr_prepare(struct r820t_priv *priv)
 static int r820t_multi_read(struct r820t_priv *priv)
 {
 	int rc, i;
-	u8 data[2], min = 0, max = 255, sum = 0;
+	u16 sum = 0;
+	u8 data[2], min = 255, max = 0;
 
+printk("r820t_multi_read\n");
+	
 	usleep_range(5000, 6000);
 
 	for (i = 0; i < 6; i++) {
@@ -1498,6 +1506,7 @@ static int r820t_multi_read(struct r820t_priv *priv)
 			max = data[1];
 	}
 	rc = sum - max - min;
+printk("rc=%d\n",rc);
 
 	return rc;
 }
@@ -1510,7 +1519,7 @@ static int r820t_imr_cross(struct r820t_priv *priv,
 	struct r820t_sect_type tmp;
 	int i, rc;
 	u8 reg08, reg09;
-
+printk("r820t_imr_cross\n");
 	reg08 = r820t_read_cache_reg(priv, 8) & 0xc0;
 	reg09 = r820t_read_cache_reg(priv, 9) & 0xc0;
 
@@ -1597,7 +1606,7 @@ static int r820t_compre_step(struct r820t_priv *priv,
 	 *  new < min => update to min and continue
 	 *  new > min => Exit
 	 */
-
+printk("r820t_compre_step\n");
 	/* min value already saved in iq[0] */
 	tmp.phase_y = iq[0].phase_y;
 	tmp.gain_x  = iq[0].gain_x;
@@ -1642,6 +1651,7 @@ static int r820t_iq_tree(struct r820t_priv *priv,
 	int rc, i;
 	u8 tmp, var_reg;
 
+printk("r820t_iq_tree\n");
 	/*
 	 * record IMC results by input gain/phase location then adjust
 	 * gain or phase positive 1 step and negtive 1 step,
@@ -1762,6 +1772,8 @@ static int r820t_vga_adjust(struct r820t_priv *priv)
 	int rc;
 	u8 vga_count;
 
+	
+printk("r820t_vga_adjust\n");
 	/* increase vga power to let image significant */
 	for (vga_count = 12; vga_count < 16; vga_count++) {
 		rc = r820t_write_reg_mask(priv, 0x0c, vga_count, 0x0f);
@@ -1788,6 +1800,9 @@ static int r820t_iq(struct r820t_priv *priv, struct r820t_sect_type *iq_pont)
 	u8 x_direction = 0;  /* 1:x, 0:y */
 	u8 dir_reg, other_reg;
 
+printk("r820t_iq\n");
+
+	
 	r820t_vga_adjust(priv);
 
 	rc = r820t_imr_cross(priv, compare_iq, &x_direction);
@@ -1818,7 +1833,7 @@ static int r820t_iq(struct r820t_priv *priv, struct r820t_sect_type *iq_pont)
 
 	/* compare and find min of 3 points. determine i/q direction */
 	r820t_compre_cor(compare_iq);
-
+printk("r820t_iq mid\n");
 	/* increase step to find min value on this direction */
 	rc = r820t_compre_step(priv, compare_iq, other_reg);
 	if (rc < 0)
@@ -1843,7 +1858,7 @@ static int r820t_iq(struct r820t_priv *priv, struct r820t_sect_type *iq_pont)
 		return rc;
 
 	rc = r820t_write_reg_mask(priv, 0x09, 0, 0x3f);
-
+printk("r820t_iq end\n");
 	return rc;
 }
 
@@ -1870,7 +1885,7 @@ static int r820t_imr(struct r820t_priv *priv, unsigned imr_mem, bool im_flag)
 	int rc;
 	u32 ring_vco, ring_freq, ring_ref;
 	u8 n_ring, n;
-	int reg18, reg19, reg1f;
+	int reg18, reg19, reg1f, reg07;
 
 	if (priv->cfg->xtal > 24000000)
 		ring_ref = priv->cfg->xtal / 2000;
@@ -1904,46 +1919,55 @@ static int r820t_imr(struct r820t_priv *priv, unsigned imr_mem, bool im_flag)
 		reg18 |= 0x20;  /* ring_se23 = 1 */
 		reg19 |= 0x03;  /* ring_seldiv = 3 */
 		reg1f |= 0x02;  /* ring_att 10 */
+		reg07 = r820t_read_cache_reg(priv, 0x07) & 0xe5 | 0x05;
 		break;
 	case 1:
 		ring_freq = ring_vco / 16;
 		reg18 |= 0x00;  /* ring_se23 = 0 */
 		reg19 |= 0x02;  /* ring_seldiv = 2 */
 		reg1f |= 0x00;  /* pw_ring 00 */
+		reg07 = r820t_read_cache_reg(priv, 0x07) & 0xe5 | 0x05;
 		break;
 	case 2:
 		ring_freq = ring_vco / 8;
 		reg18 |= 0x00;  /* ring_se23 = 0 */
 		reg19 |= 0x01;  /* ring_seldiv = 1 */
 		reg1f |= 0x03;  /* pw_ring 11 */
+		reg07 = r820t_read_cache_reg(priv, 0x07) & 0xe5 | 0x05;
 		break;
 	case 3:
 		ring_freq = ring_vco / 6;
 		reg18 |= 0x20;  /* ring_se23 = 1 */
 		reg19 |= 0x00;  /* ring_seldiv = 0 */
 		reg1f |= 0x03;  /* pw_ring 11 */
+		reg07 = r820t_read_cache_reg(priv, 0x07) & 0xe5 | 0x05;
 		break;
 	case 4:
 		ring_freq = ring_vco / 4;
 		reg18 |= 0x00;  /* ring_se23 = 0 */
 		reg19 |= 0x00;  /* ring_seldiv = 0 */
 		reg1f |= 0x01;  /* pw_ring 01 */
+		reg07 = r820t_read_cache_reg(priv, 0x07) & 0xea | 0x0a;
 		break;
 	default:
 		ring_freq = ring_vco / 4;
 		reg18 |= 0x00;  /* ring_se23 = 0 */
 		reg19 |= 0x00;  /* ring_seldiv = 0 */
 		reg1f |= 0x01;  /* pw_ring 01 */
+		reg07 = r820t_read_cache_reg(priv, 0x07) & 0xea | 0x0a;
 		break;
 	}
-
+printk("reg7\n");
+	rc = r820t_write_reg(priv, 0x07, reg07);
+	if (rc < 0)
+		return rc;
 
 	/* write pw_ring, n_ring, ringdiv2 registers */
 
 	/* n_ring, ring_se23 */
-	rc = r820t_write_reg(priv, 0x18, reg18);
-	if (rc < 0)
-		return rc;
+ 	rc = r820t_write_reg(priv, 0x18, reg18);
+ 	if (rc < 0)
+ 		return rc;
 
 	/* ring_sediv */
 	rc = r820t_write_reg(priv, 0x19, reg19);
@@ -1956,10 +1980,11 @@ static int r820t_imr(struct r820t_priv *priv, unsigned imr_mem, bool im_flag)
 		return rc;
 
 	/* mux input freq ~ rf_in freq */
+printk("r820t_set_mux\n");
 	rc = r820t_set_mux(priv, (ring_freq - 5300) * 1000);
 	if (rc < 0)
 		return rc;
-
+printk("r820t_set_pll\n");
 	rc = r820t_set_pll(priv, V4L2_TUNER_DIGITAL_TV,
 			   (ring_freq - 5300) * 1000);
 	if (!priv->has_lock)
@@ -2043,6 +2068,7 @@ static int r820t_imr_callibrate(struct r820t_priv *priv)
 				xtal_cap = rc;
 		}
 		priv->xtal_cap_sel = xtal_cap;
+		priv->xtal_cap_sel = XTAL_LOW_CAP_0P;
 	}
 
 	/*
@@ -2061,29 +2087,36 @@ static int r820t_imr_callibrate(struct r820t_priv *priv)
 	if (rc < 0)
 		return rc;
 
+printk("imr prepare\n");
 	rc = r820t_imr_prepare(priv);
 	if (rc < 0)
 		return rc;
 
+printk("imr 3\n");
 	rc = r820t_imr(priv, 3, true);
 	if (rc < 0)
 		return rc;
+printk("imr 1\n");
 	rc = r820t_imr(priv, 1, false);
 	if (rc < 0)
 		return rc;
+
+printk("imr 0\n");
 	rc = r820t_imr(priv, 0, false);
 	if (rc < 0)
 		return rc;
+printk("imr 2\n");
 	rc = r820t_imr(priv, 2, false);
 	if (rc < 0)
 		return rc;
+printk("imr 4\n");
 	rc = r820t_imr(priv, 4, false);
 	if (rc < 0)
 		return rc;
 
 	priv->init_done = true;
 	priv->imr_done = true;
-
+printk("imr done\n");
 	return 0;
 }
 
