@@ -36,6 +36,9 @@
 #include "tua9001.h"
 #include "r820t.h"
 
+/* Max transfer size done by I2C transfer functions */
+#define MAX_XFER_SIZE  64
+
 DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr);
 
 static int rtl28xxu_ctrl_msg(struct dvb_usb_device *d, struct rtl28xxu_req *req)
@@ -758,6 +761,8 @@ static int rtl2832u_frontend_callback(void *adapter_priv, int component,
 	return 0;
 }
 
+
+
 /* slave demod TS output is connected to master demod TS input */
 static int rtl28xxu_mn88472_init(struct dvb_frontend *fe)
 {
@@ -814,8 +819,11 @@ static int rtl2832u_frontend_attach(struct dvb_usb_adapter *adap)
 	}
 
 	/* RTL2832 I2C repeater */
-	priv->demod_i2c_adapter = rtl2832_get_i2c_adapter(adap->fe[0]);
+	priv->demod_i2c_adapter = rtl2832_get_i2c_adapter(adap->fe[0], 1);
 
+	/* RTL2832 I2C adapter, used for pid filter */
+	priv->demod_i2c_repeater = rtl2832_get_i2c_adapter(adap->fe[0], 0);
+	
 	/* set fe callback */
 	adap->fe[0]->callback = rtl2832u_frontend_callback;
 
@@ -1037,6 +1045,76 @@ err:
 	dev_dbg(&d->udev->dev, "%s: failed=%d\n", __func__, ret);
 	return ret;
 }
+
+
+/* write multiple hardware registers */
+static int rtl2832u_wr(struct rtl28xxu_priv *priv, u8 reg, u8 *val, int len)
+{
+	int ret;
+	u8 buf[MAX_XFER_SIZE];
+	struct i2c_msg msg[1] = {
+		{
+			.addr = 0x10,/* Fixed demod i2c address */
+			.flags = 0,
+			.len = 1 + len,
+			.buf = buf,
+		}
+	};
+
+	if (1 + len > sizeof(buf)) {
+		return -EINVAL;
+	}
+
+	buf[0] = reg;
+	memcpy(&buf[1], val, len);
+
+	ret = i2c_transfer(priv->demod_i2c_repeater, msg, 1);
+	if (ret == 1) {
+		ret = 0;
+	} else {
+		ret = -EREMOTEIO;
+	}
+	return ret;
+}
+
+static int rtl2832u_pid_filter_ctrl(struct dvb_usb_adapter *adap, int onoff)
+{
+	int ret;
+	struct dvb_usb_device *d = adap_to_d(adap);
+	struct rtl28xxu_priv *priv = adap_to_priv(adap);
+
+	ret = rtl2832u_wr(priv, 0x61, onoff ? 0x80 : 0x00, 1);
+
+	return ret;
+}
+EXPORT_SYMBOL(rtl2832u_pid_filter_ctrl);
+
+
+static int rtl2832u_pid_filter(struct dvb_usb_adapter *adap,
+		int index, u16 pid, int onoff) {
+	int ret;
+	struct dvb_usb_device *d = adap_to_d(adap);
+	struct rtl28xxu_priv *priv = d_to_priv(d);
+	u8 reg_adr, toggle_adr, toggle_pos, shadow_idx;
+
+	/* Insert the pid filter */
+	reg_adr = 0x66 + index*2;
+	ret = rtl2832u_wr(priv, reg_adr, (pid>>8)&0xFF, 1);
+	ret = rtl2832u_wr(priv, reg_adr+1, pid&0xFF, 1);
+
+	/* Toggle the pid filter */
+	shadow_idx = index/8;
+	toggle_adr = 0x62 + index/8;
+	toggle_pos = index%8;
+	if (onoff) {
+		priv->pid_shadow_regs[shadow_idx] |= 1<<toggle_pos;
+	} else {
+		priv->pid_shadow_regs[shadow_idx] &= ~(1<<toggle_pos);
+	}
+	ret = rtl2832u_wr(priv, toggle_adr, priv->pid_shadow_regs[shadow_idx], 1);
+	
+}
+EXPORT_SYMBOL(rtl2832u_pid_filter);
 
 static int rtl28xxu_init(struct dvb_usb_device *d)
 {
@@ -1418,6 +1496,7 @@ static const struct dvb_usb_device_properties rtl2831u_props = {
 	},
 };
 
+
 static const struct dvb_usb_device_properties rtl2832u_props = {
 	.driver_name = KBUILD_MODNAME,
 	.owner = THIS_MODULE,
@@ -1435,6 +1514,11 @@ static const struct dvb_usb_device_properties rtl2832u_props = {
 	.num_adapters = 1,
 	.adapter = {
 		{
+			.caps = DVB_USB_ADAP_HAS_PID_FILTER|
+				DVB_USB_ADAP_PID_FILTER_CAN_BE_TURNED_OFF,
+			.pid_filter_count = 32,
+			.pid_filter = rtl2832u_pid_filter,
+			.pid_filter_ctrl  = rtl2832u_pid_filter_ctrl,
 			.stream = DVB_USB_STREAM_BULK(0x81, 6, 8 * 512),
 		},
 	},

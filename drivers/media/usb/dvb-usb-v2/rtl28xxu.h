@@ -56,6 +56,7 @@ struct rtl28xxu_priv {
 	char *tuner_name;
 	u8 page; /* integrated demod active register page */
 	struct i2c_adapter *demod_i2c_adapter;
+	struct i2c_adapter *demod_i2c_repeater;
 	bool rc_active;
 	int (*init) (struct dvb_frontend *fe);
 	bool has_slave_demod;

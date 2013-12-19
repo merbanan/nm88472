@@ -928,6 +928,7 @@ err:
 	return ret;
 }
 
+
 static struct dvb_frontend_ops rtl2832_ops;
 
 static void rtl2832_release(struct dvb_frontend *fe)
@@ -986,10 +987,13 @@ err:
 	return -EREMOTEIO;
 }
 
-struct i2c_adapter *rtl2832_get_i2c_adapter(struct dvb_frontend *fe)
+struct i2c_adapter *rtl2832_get_i2c_adapter(struct dvb_frontend *fe, int tuner)
 {
 	struct rtl2832_priv *priv = fe->demodulator_priv;
-	return priv->i2c_adapter_tuner;
+	if (tuner)
+		return priv->i2c_adapter_tuner;
+	else
+		return priv->i2c_adapter;
 }
 EXPORT_SYMBOL(rtl2832_get_i2c_adapter);
 
