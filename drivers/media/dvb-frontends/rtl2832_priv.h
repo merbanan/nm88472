@@ -37,6 +37,7 @@ struct rtl2832_priv {
 
 	u8 tuner;
 	u8 page; /* active register page */
+	u8 pid_shadow_regs[4];
 };
 
 struct rtl2832_reg_entry {

@@ -67,6 +67,11 @@ extern struct i2c_adapter *rtl2832_get_i2c_adapter(
 	struct dvb_frontend *fe
 );
 
+extern int rtl2832_pid_filter_ctrl(struct dvb_frontend *fe, int onoff);
+
+extern int rtl2832_pid_filter(struct dvb_frontend *fe,
+		int index, u16 pid, int onoff);
+
 #else
 
 static inline struct dvb_frontend *rtl2832_attach(
@@ -84,6 +89,21 @@ static inline struct i2c_adapter *rtl2832_get_i2c_adapter(
 {
 	return NULL;
 }
+
+static inline int rtl2832_pid_filter(struct dvb_frontend *fe, u8 int,
+						u16 pid, int onoff)
+{
+	printk(KERN_WARNING "%s: driver disabled by Kconfig\n", __func__);
+	return -ENODEV;
+}
+
+static inline int rtl2832_pid_filter_ctrl(struct dvb_frontend *fe,
+						int onoff)
+{
+	printk(KERN_WARNING "%s: driver disabled by Kconfig\n", __func__);
+	return -ENODEV;
+}
+
 #endif
 
 
