@@ -1044,9 +1044,10 @@ static int rtl28xxu_pid_filter(struct dvb_usb_adapter *adap, int index, u16 pid,
 	struct dvb_usb_device *d = adap_to_d(adap);
 	struct rtl28xxu_priv *priv = d_to_priv(d);
 	if (priv->has_slave_demod) {
-		val = rtl2832_pid_filter(adap->fe[1], index, pid, onoff);
+		val = rtl2832_pid_filter(adap->fe[1], index, pid, onoff, 1);
+		val = rtl2832_pid_filter(adap->fe[0], index, pid, onoff, 0);
 	} else {
-		val = rtl2832_pid_filter(adap->fe[0], index, pid, onoff);
+		val = rtl2832_pid_filter(adap->fe[0], index, pid, onoff, 0);
 	}
 	return val;
 }
@@ -1057,9 +1058,10 @@ static int rtl28xxu_pid_filter_ctrl(struct dvb_usb_adapter *adap, int onoff)
 	struct dvb_usb_device *d = adap_to_d(adap);
 	struct rtl28xxu_priv *priv = d_to_priv(d);
 	if (priv->has_slave_demod) {
-		val = rtl2832_pid_filter_ctrl(adap->fe[1], onoff);
+		val = rtl2832_pid_filter_ctrl(adap->fe[1], onoff, 1);
+		val = rtl2832_pid_filter_ctrl(adap->fe[0], onoff, 0);
 	} else {
-		val = rtl2832_pid_filter_ctrl(adap->fe[0], onoff);
+		val = rtl2832_pid_filter_ctrl(adap->fe[0], onoff, 0);
 	}
 	return val;
 }
