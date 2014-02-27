@@ -932,20 +932,27 @@ err:
 static struct dvb_frontend_ops rtl2832_ops;
 
 
-int rtl2832_pid_filter_ctrl(struct dvb_frontend *fe, int onoff, int slave)
+int rtl2832_pid_filter_ctrl(struct dvb_frontend *fe, int onoff, int slave_demod, int slave_active )
 {
 	int ret;
 	u8 val, base_adr;
 	struct rtl2832_priv *priv = fe->demodulator_priv;
 
-	if (slave)
-		base_adr = 0x21;
-	else
-		base_adr = 0x61;
-	
-	// FIXME this is probably wrong, also no shadow reg
-	val = onoff ? 0x80 : 0x00;
-	ret = rtl2832_wr(priv, base_adr, &val , 1);
+	if (slave_demod) {
+		if (slave_active) {
+			val = onoff ? 0x60 : 0x00;
+			ret = rtl2832_wr(priv, 0x61, &val , 1);
+			val = onoff ? 0xa8 : 0x00;
+			ret = rtl2832_wr(priv, 0x21, &val , 1);
+		} else {
+			val = onoff ? 0x80 : 0x00;
+			ret = rtl2832_wr(priv, 0x61, &val , 1);
+		}
+	} else {
+		// FIXME this is probably wrong, also no shadow reg
+		val = onoff ? 0x80 : 0x00;
+		ret = rtl2832_wr(priv, 0x61, &val , 1);
+	}
 
 	return ret;
 }

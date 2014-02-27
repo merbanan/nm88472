@@ -1057,11 +1057,16 @@ static int rtl28xxu_pid_filter_ctrl(struct dvb_usb_adapter *adap, int onoff)
 	int val;
 	struct dvb_usb_device *d = adap_to_d(adap);
 	struct rtl28xxu_priv *priv = d_to_priv(d);
+	
 	if (priv->has_slave_demod) {
-		val = rtl2832_pid_filter_ctrl(adap->fe[1], onoff, 1);
-		val = rtl2832_pid_filter_ctrl(adap->fe[0], onoff, 0);
+		/* Check if the slave frontend is active, FIXME hackish */
+		if (adap->fe[1]->dtv_property_cache.frequency == 0) {
+			val = rtl2832_pid_filter_ctrl(adap->fe[1], onoff, 1, 1);
+		} else {
+			val = rtl2832_pid_filter_ctrl(adap->fe[1], onoff, 1, 0);
+		}
 	} else {
-		val = rtl2832_pid_filter_ctrl(adap->fe[0], onoff, 0);
+		val = rtl2832_pid_filter_ctrl(adap->fe[0], onoff, 0, 0);
 	}
 	return val;
 }
@@ -1467,7 +1472,7 @@ static const struct dvb_usb_device_properties rtl2832u_props = {
 			.stream = DVB_USB_STREAM_BULK(0x81, 6, 8 * 512),
 			.caps = DVB_USB_ADAP_HAS_PID_FILTER|
 				DVB_USB_ADAP_PID_FILTER_CAN_BE_TURNED_OFF,
-			.pid_filter_count = 32,
+			.pid_filter_count = 16,
 			.pid_filter = rtl28xxu_pid_filter,
 			.pid_filter_ctrl  = rtl28xxu_pid_filter_ctrl,
 		},
